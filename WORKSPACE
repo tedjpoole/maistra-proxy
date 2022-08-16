@@ -20,6 +20,7 @@ workspace(name = "io_istio_proxy")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load(
     "//bazel:repositories.bzl",
+    "docker_dependencies",
     "googletest_repositories",
     "istioapi_dependencies",
 )
@@ -35,11 +36,11 @@ new_local_repository(
 # 1. Determine SHA256 `wget https://github.com/envoyproxy/envoy/archive/$COMMIT.tar.gz && sha256sum $COMMIT.tar.gz`
 # 2. Update .bazelversion, envoy.bazelrc and .bazelrc if needed.
 #
+# Note: this is needed by release builder to resolve envoy dep sha to tag.
+# Commit date: 2022-07-29
+ENVOY_SHA = "2ba6db6633d24dbe4aa2c5cf8ebba9f84767e3f4"
 
-# Commit date: 2023-10-27
-ENVOY_SHA = "2dd212afec2f291cade88c2122b851d18b9d7f90"
-
-ENVOY_SHA256 = "7490f48dcefb2adc65eeec8eaf34ef596beabe22f4064fef4d90501db773db39"
+ENVOY_SHA256 = "558cb2faf2e4fb697d691963b81bd8dba78f93d925cac90d42238b3b6c2b452b"
 
 ENVOY_ORG = "envoyproxy"
 
@@ -95,6 +96,19 @@ http_archive(
 
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 rules_pkg_dependencies()
+
+# Docker dependencies
+
+docker_dependencies()
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+container_repositories()
+load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+container_deps()
+
+# End of docker dependencies
 
 load("//bazel:wasm.bzl", "wasm_dependencies")
 wasm_dependencies()
