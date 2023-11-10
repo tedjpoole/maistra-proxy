@@ -19,6 +19,7 @@ workspace(name = "io_istio_proxy")
 
 # http_archive is not a native function since bazel 0.19
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load(
     "//bazel:repositories.bzl",
     "docker_dependencies",
@@ -28,23 +29,27 @@ load(
 
 istioapi_dependencies()
 
-new_local_repository(
-    name = "openssl",
-    path = "/usr/lib64/",
-    build_file = "openssl.BUILD"
+
+BSSL_COMPAT_ORG = "tedjpoole"
+BSSL_COMPAT_REPO = "envoy-openssl"
+BSSL_COMPAT_BRANCH = "OSSM-5001-integrate-into-proxy"
+
+git_repository(
+    name = "envoy-openssl",
+    remote = "https://github.com/" + BSSL_COMPAT_ORG + "/" + BSSL_COMPAT_REPO + ".git",
+    branch = BSSL_COMPAT_BRANCH,
+    init_submodules = True,
 )
+
 
 # 1. Determine SHA256 `wget https://github.com/envoyproxy/envoy/archive/$COMMIT.tar.gz && sha256sum $COMMIT.tar.gz`
 # 2. Update .bazelversion, envoy.bazelrc and .bazelrc if needed.
 #
 # Note: this is needed by release builder to resolve envoy dep sha to tag.
-# Commit date: 2022-07-29
-ENVOY_SHA = "4a78015f0650c8fb3e7e291a64c9ee8e93c77ba2"
-
-ENVOY_SHA256 = "0a82c2f7fedefaa7a8d727a417397610afeaf4b8b043e49b2ef8e4dfddd5880d"
-
-ENVOY_ORG = "maistra"
-
+# Commit date: 2023-07-05
+ENVOY_SHA = "d3663038baad00278ca6d2663f7859a913b96d73"
+ENVOY_SHA256 = "35f1930e47dd8d854dec19df6343ad72d0d0135071d48d0c1f1e03e54153a70d"
+ENVOY_ORG = "envoyproxy"
 ENVOY_REPO = "envoy"
 
 # To override with local envoy, just pass `--override_repository=envoy=/PATH/TO/ENVOY` to Bazel or
@@ -54,6 +59,17 @@ http_archive(
     sha256 = ENVOY_SHA256,
     strip_prefix = ENVOY_REPO + "-" + ENVOY_SHA,
     url = "https://github.com/" + ENVOY_ORG + "/" + ENVOY_REPO + "/archive/" + ENVOY_SHA + ".tar.gz",
+    patch_args = [ "-p1" ],
+    patches = [
+        "//maistra/patches/envoy:bazel/repositories.bzl.patch",
+        "//maistra/patches/envoy:source/common/quic/BUILD.patch",
+        "//maistra/patches/envoy:source/extensions/transport_sockets/tls/io_handle_bio.cc.patch",
+        "//maistra/patches/envoy:source/extensions/transport_sockets/tls/ocsp/asn1_utility.cc.patch",
+        "//maistra/patches/envoy:source/extensions/transport_sockets/tls/utility.cc.patch",
+    ],
+    repo_mapping = {
+        "@boringssl": "@bssl-compat",
+    },
 )
 
 load("@envoy//bazel:api_binding.bzl", "envoy_api_binding")
@@ -90,12 +106,11 @@ local_repository(
     path = "maistra/local",
 )
 
-# load("@envoy//bazel:repositories_extra.bzl", "envoy_dependencies_extra")
-# envoy_dependencies_extra()
+load("@envoy//bazel:repositories_extra.bzl", "envoy_dependencies_extra")
+envoy_dependencies_extra()
 
-# load("@envoy//bazel:python_dependencies.bzl", "envoy_python_dependencies")
-
-# envoy_python_dependencies()
+load("@envoy//bazel:python_dependencies.bzl", "envoy_python_dependencies")
+envoy_python_dependencies()
 
 load("@base_pip3//:requirements.bzl", "install_deps")
 install_deps()

@@ -21,7 +21,8 @@ export CC=clang CXX=clang++
 function init(){
   ROOT_DIR="$(pwd)"
 
-  OUTPUT_BASE="$(mktemp -d)"
+  # OUTPUT_BASE="$(mktemp -d)"
+  OUTPUT_BASE="${ROOT_DIR}/output"
   VENDOR_DIR="${ROOT_DIR}/maistra/vendor"
   PATCH_DIR="${ROOT_DIR}/maistra/patches"
   BAZELRC="${ROOT_DIR}/maistra/bazelrc-vendor"
@@ -111,17 +112,27 @@ function apply_patches() {
 }
 
 function run_bazel() {
+  BAZEL_CACHE_FLAGS=""
+  if [[ -n ${BAZEL_REMOTE_CACHE} ]]; then
+    BAZEL_CACHE_FLAGS="--remote_cache=${BAZEL_REMOTE_CACHE}"
+    if [[ -n ${BAZEL_EXPERIMENTAL_REMOTE_DOWNLOADER} ]]; then
+      BAZEL_CACHE_FLAGS+=" --experimental_remote_downloader=${BAZEL_EXPERIMENTAL_REMOTE_DOWNLOADER}"
+    fi
+  elif [[ -n ${BAZEL_DISK_CACHE} ]]; then
+    BAZEL_CACHE_FLAGS+="--disk_cache=${BAZEL_DISK_CACHE}"
+  fi
+
   # Fetch stats_plugin just to load emsdk and net_zlib dependencies
-  bazel --output_base="${OUTPUT_BASE}" fetch //extensions/stats:stats_plugin || true
+  # bazel --output_base="${OUTPUT_BASE}" fetch ${BAZEL_CACHE_FLAGS} //extensions/stats:stats_plugin || true
 
   # Workaround to force fetch of rules_license
-  bazel --output_base="${OUTPUT_BASE}" fetch @remote_java_tools//java_tools/zlib:zlib || true
+  # bazel --output_base="${OUTPUT_BASE}" fetch ${BAZEL_CACHE_FLAGS} @remote_java_tools//java_tools/zlib:zlib || true
 
-  apply_patches
+  # apply_patches
 
   # Fetch all the rest and check everything using "build --nobuild "option
-  for config in s390x ppc x86_64; do   
-    bazel --output_base="${OUTPUT_BASE}" build --nobuild --config="${config}" //src/... //test/...  //extensions/...
+  for config in x86_64; do   
+    bazel --output_base="${OUTPUT_BASE}" build --nobuild --config="${config}" ${BAZEL_CACHE_FLAGS} //src/... //test/...  //extensions/...
   done
  
 }

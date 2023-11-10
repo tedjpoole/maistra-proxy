@@ -34,6 +34,9 @@ COMMON_FLAGS="\
 
 if [ -n "${BAZEL_REMOTE_CACHE}" ]; then
   COMMON_FLAGS+=" --remote_cache=${BAZEL_REMOTE_CACHE} "
+  if [ -n "${BAZEL_EXPERIMENTAL_REMOTE_DOWNLOADER}" ]; then
+    COMMON_FLAGS+=" --experimental_remote_downloader=${BAZEL_EXPERIMENTAL_REMOTE_DOWNLOADER}"
+  fi
 elif [ -n "${BAZEL_DISK_CACHE}" ]; then
   COMMON_FLAGS+=" --disk_cache=${BAZEL_DISK_CACHE} "
 fi
