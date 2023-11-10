@@ -3,7 +3,7 @@ package types
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Resource is the base interface for the xDS payload.
@@ -11,11 +11,16 @@ type Resource interface {
 	proto.Message
 }
 
-// ResourceWithTtl is a Resource with an optional TTL.
-type ResourceWithTtl struct {
+// ResourceWithTTL is a Resource with an optional TTL.
+type ResourceWithTTL struct {
 	Resource Resource
+	TTL      *time.Duration
+}
 
-	Ttl *time.Duration
+// ResourceWithName provides a name for out-of-tree resources.
+type ResourceWithName interface {
+	proto.Message
+	GetName() string
 }
 
 // MarshaledResource is an alias for the serialized binary array.
@@ -37,9 +42,12 @@ const (
 	Endpoint ResponseType = iota
 	Cluster
 	Route
+	ScopedRoute
+	VirtualHost
 	Listener
 	Secret
 	Runtime
 	ExtensionConfig
+	RateLimitConfig
 	UnknownType // token to count the total number of supported types
 )
