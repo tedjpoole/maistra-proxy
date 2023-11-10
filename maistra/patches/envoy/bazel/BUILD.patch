@@ -1,0 +1,31 @@
+--- a/bazel/BUILD
++++ b/bazel/BUILD
+@@ -512,25 +512,17 @@
+     values = {"define": "uhv=enabled"},
+ )
+ 
+-# Alias pointing to the selected version of BoringSSL:
+-# - BoringSSL FIPS from @boringssl_fips//:ssl,
+-# - non-FIPS BoringSSL from @boringssl//:ssl.
+ alias(
+     name = "boringssl",
+-    actual = select({
+-        "//bazel:boringssl_fips": "@boringssl_fips//:ssl",
+-        "//conditions:default": "@boringssl//:ssl",
+-    }),
++    actual = "@envoy-openssl//bssl-compat:bssl-compat",
+ )
+ 
+ alias(
+     name = "boringcrypto",
+-    actual = select({
+-        "//bazel:boringssl_fips": "@boringssl_fips//:crypto",
+-        "//conditions:default": "@boringssl//:crypto",
+-    }),
++    actual = "@envoy-openssl//bssl-compat:bssl-compat",
+ )
+ 
++
+ config_setting(
+     name = "linux_x86_64",
+     values = {"cpu": "k8"},

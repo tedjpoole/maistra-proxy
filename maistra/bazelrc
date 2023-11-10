@@ -6,7 +6,7 @@ build --extra_toolchains=@local_jdk//:all
 build --tool_java_runtime_version=local_jdk
 build --verbose_failures
 build --config=clang
-build --define=crypto=system
+#build --define=crypto=system # Always build against bssl-compat
 
 # Test flags
 build --test_env=ENVOY_IP_TEST_VERSIONS=v4only

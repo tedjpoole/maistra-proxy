@@ -73,38 +73,18 @@ diff -ruN a/emscripten_deps.bzl b/emscripten_deps.bzl
  
      if "emscripten_bin_mac" not in excludes:
          http_archive(
-@@ -70,12 +73,13 @@
-             type = "zip",
-         )
- 
--    if "emscripten_npm_linux" not in excludes:
--        npm_install(
--            name = "emscripten_npm_linux",
--            package_json = "@emscripten_bin_linux//:emscripten/package.json",
--            package_lock_json = "@emscripten_bin_linux//:emscripten/package-lock.json",
--        )
-+    # Commented out, as it downloads  nodejs again
-+    # if "emscripten_npm_linux" not in excludes:
-+    #     npm_install(
-+    #         name = "emscripten_npm_linux",
-+    #         package_json = "@emscripten_bin_linux//:emscripten/package.json",
-+    #         package_lock_json = "@emscripten_bin_linux//:emscripten/package-lock.json",
-+    #     )
- 
-     if "emscripten_npm_mac" not in excludes:
-         npm_install(
 diff -ruN a/emscripten_toolchain/BUILD.bazel b/emscripten_toolchain/BUILD.bazel
 --- a/emscripten_toolchain/BUILD.bazel	2022-11-10 15:40:43.452247243 +0100
 +++ b/emscripten_toolchain/BUILD.bazel	2022-11-10 15:40:43.463247341 +0100
-@@ -14,7 +14,6 @@
+@@ -13,7 +13,6 @@
+         "env.sh",
          "env.bat",
          "@emsdk//:binaries",
-         "@emsdk//:node_modules",
 -        "@nodejs//:node_files",
      ],
  )
  
-@@ -31,7 +30,6 @@
+@@ -30,7 +29,6 @@
          "link_wrapper.py",
          ":common-script-includes",
          "@emsdk//:binaries",
@@ -112,7 +92,7 @@ diff -ruN a/emscripten_toolchain/BUILD.bazel b/emscripten_toolchain/BUILD.bazel
      ],
  )
  
-@@ -41,7 +39,6 @@
+@@ -40,7 +38,6 @@
          ":compile-emscripten",
          ":link-emscripten",
          "@emsdk//:binaries",

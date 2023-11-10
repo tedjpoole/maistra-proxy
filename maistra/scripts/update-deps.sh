@@ -21,8 +21,7 @@ export CC=clang CXX=clang++
 function init(){
   ROOT_DIR="$(pwd)"
 
-  # OUTPUT_BASE="$(mktemp -d)"
-  OUTPUT_BASE="${ROOT_DIR}/output"
+  OUTPUT_BASE="$(mktemp -d)"
   VENDOR_DIR="${ROOT_DIR}/maistra/vendor"
   PATCH_DIR="${ROOT_DIR}/maistra/patches"
   BAZELRC="${ROOT_DIR}/maistra/bazelrc-vendor"
@@ -122,16 +121,16 @@ function run_bazel() {
     BAZEL_CACHE_FLAGS+="--disk_cache=${BAZEL_DISK_CACHE}"
   fi
 
-  # Fetch stats_plugin just to load emsdk and net_zlib dependencies
-  # bazel --output_base="${OUTPUT_BASE}" fetch ${BAZEL_CACHE_FLAGS} //extensions/stats:stats_plugin || true
+  # Fetch emsdk and net_zlib dependencies
+  bazel --output_base="${OUTPUT_BASE}" fetch @emsdk//:BUILD @net_zlib//:README
 
   # Workaround to force fetch of rules_license
-  # bazel --output_base="${OUTPUT_BASE}" fetch ${BAZEL_CACHE_FLAGS} @remote_java_tools//java_tools/zlib:zlib || true
+  bazel --output_base="${OUTPUT_BASE}" fetch ${BAZEL_CACHE_FLAGS} @remote_java_tools//java_tools/zlib:zlib || true
 
-  # apply_patches
+  apply_patches
 
   # Fetch all the rest and check everything using "build --nobuild "option
-  for config in x86_64; do   
+  for config in x86_64; do # FIXME: Reinstate fetching for s390x & ppc targets
     bazel --output_base="${OUTPUT_BASE}" build --nobuild --config="${config}" ${BAZEL_CACHE_FLAGS} //src/... //test/...  //extensions/...
   done
  

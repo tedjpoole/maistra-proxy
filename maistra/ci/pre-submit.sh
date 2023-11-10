@@ -22,15 +22,15 @@ source "${DIR}/common.sh"
 # echo "WASM extensions built succesfully. Now building envoy binary."
 
 # Build Envoy
-time bazel_build //src/envoy:envoy
+time bazel_build //:envoy
 
 echo "Build succeeded. Binary generated:"
-bazel-bin/src/envoy/envoy --version
+bazel-bin/envoy --version
 
 # Run tests
 time bazel_test //src/... //test/...
 
-export ENVOY_PATH=bazel-bin/src/envoy/envoy
+export ENVOY_PATH=bazel-bin/envoy
 export GO111MODULE=on
 export GOPATH=$HOME/go
 

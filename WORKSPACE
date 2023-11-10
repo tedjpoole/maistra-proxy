@@ -23,7 +23,6 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load(
     "//bazel:repositories.bzl",
     "docker_dependencies",
-    "googletest_repositories",
     "istioapi_dependencies",
 )
 
@@ -47,8 +46,8 @@ git_repository(
 #
 # Note: this is needed by release builder to resolve envoy dep sha to tag.
 # Commit date: 2023-07-05
-ENVOY_SHA = "d3663038baad00278ca6d2663f7859a913b96d73"
-ENVOY_SHA256 = "35f1930e47dd8d854dec19df6343ad72d0d0135071d48d0c1f1e03e54153a70d"
+ENVOY_SHA = "2dd212afec2f291cade88c2122b851d18b9d7f90"
+ENVOY_SHA256 = "7490f48dcefb2adc65eeec8eaf34ef596beabe22f4064fef4d90501db773db39"
 ENVOY_ORG = "envoyproxy"
 ENVOY_REPO = "envoy"
 
@@ -62,6 +61,7 @@ http_archive(
     patch_args = [ "-p1" ],
     patches = [
         "//maistra/patches/envoy:bazel/repositories.bzl.patch",
+        "//maistra/patches/envoy:bazel/BUILD.patch",
         "//maistra/patches/envoy:source/common/quic/BUILD.patch",
         "//maistra/patches/envoy:source/extensions/transport_sockets/tls/io_handle_bio.cc.patch",
         "//maistra/patches/envoy:source/extensions/transport_sockets/tls/ocsp/asn1_utility.cc.patch",
