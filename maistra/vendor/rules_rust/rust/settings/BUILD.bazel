@@ -29,15 +29,37 @@ bool_flag(
     build_setting_default = False,
 )
 
+# When set, this flag causes rustc to emit .rmeta files and use them for rlib -> rlib dependencies.
+# While this involves one extra (short) rustc invocation to build the rmeta file,
+# it allows library dependencies to be unlocked much sooner, increasing parallelism during compilation.
+bool_flag(
+    name = "pipelined_compilation",
+    build_setting_default = False,
+)
+
+# A flag to control whether to link rust_binary and rust_test targets using
+# cc_common.link instead of rustc.
+bool_flag(
+    name = "experimental_use_cc_common_link",
+    build_setting_default = False,
+)
+
+# A flag to indicate that a global allocator is in use when using --@rules_rust//rust/settings:experimental_use_cc_common_link
+# Users need to specify this flag because rustc generates different set of symbols at link time when a global allocator is in use.
+# When the linking is not done by rustc, the `rust_toolchain` itself provides the appropriate set of symbols.
+bool_flag(
+    name = "experimental_use_global_allocator",
+    build_setting_default = False,
+)
+
+# A flag to have coverage tooling added as `coverage_common.instrumented_files_info.metadata_files` instead of
+# reporting tools like `llvm-cov` and `llvm-profdata` as runfiles to each test.
+bool_flag(
+    name = "experimental_use_coverage_metadata_files",
+    build_setting_default = True,
+)
+
 bzl_library(
     name = "bzl_lib",
     srcs = glob(["**/*.bzl"]),
-)
-
-filegroup(
-    name = "distro",
-    srcs = glob(["*.bzl"]) + [
-        "BUILD.bazel",
-    ],
-    visibility = ["//:__subpackages__"],
 )

@@ -20,12 +20,15 @@ import_list = glob(
         "base/containers/util.h",
         "base/cxx17_backports.h",
         "base/cxx20_to_address.h",
+	"base/cxx20_is_constant_evaluated.h",
         "base/debug/crash_logging.cc",
         "base/debug/crash_logging.h",
         "base/debug/leak_annotations.h",
         "base/functional/*.h",
         "base/i18n/uchar.h",
         "base/memory/raw_ptr.h",
+        "base/memory/raw_ptr_exclusion.h",
+        "base/numerics/*.h",
         "base/no_destructor.h",
         "base/ranges/*.h",
         "base/stl_util.h",
@@ -33,6 +36,7 @@ import_list = glob(
         "base/strings/*.h",
         "base/template_util.h",
         "base/third_party/icu/**",
+        "base/win/win_handle_types.h",
         "base/win/win_handle_types_list.inc",
         "build/build_config.h",
         "build/buildflag.h",
@@ -101,8 +105,9 @@ transformations = [
     # Fix some Perfetto includes.
     core.replace("perfetto/tracing/traced_value_forward.h", "perfetto/tracing/traced_value.h"),
 
-    core.replace("#include \"base/win/windows_types.h\"", "#include <windows.h>"),
     core.replace("#include \"base/strings/string_number_conversions_win.h\"", ""),
+    core.replace("#include \"base/allocator/partition_allocator/partition_alloc_config.h\"", ""),
+    core.replace("base/trace_event/base_tracing_forward.h", "polyfills/third_party/perfetto/include/perfetto/tracing/traced_value.h"),
 
     # Use system ICU.
     core.replace(

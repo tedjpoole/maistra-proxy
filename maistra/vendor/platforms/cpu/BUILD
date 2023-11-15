@@ -13,16 +13,36 @@ filegroup(
 # To add a new constraint_value see https://github.com/bazelbuild/platforms.
 constraint_setting(name = "cpu")
 
-# TODO(b/136237408): Remove this generic CPU name and replace with a specific one.
-alias(
-    name = "aarch64",
-    actual = ":arm64",
+# New cpu values should refer to specific, highly available CPU implementations,
+# not broad architectures.  It should be possible to select the right compiler
+# options by just by knowing the cpu. This can be a difficult evaluation for
+# ARM variations, where there are many possibilities for customization within
+# an architecture.
+#
+# 1. No private names are be allowed. If you build your own custom ARM chips,
+#    then define them locally within your organization.
+# 2. All CPU values must be clear that they are for a 32 or a 64 bit
+#    implementation. For example, cortex-r52 is a 32 bit processor, and
+#    cortex-r82 is a 64 bit processor, but both are armv8-r architecture.
+#    We use the specific processor names because armv8-r is insufficient to
+#    select proper compiler options.
+#
+# Many of the name here are legacy values and probably violate these conditions.
+# We'll try to clean those up over time.
+
+constraint_value(
+    name = "aarch32",
+    constraint_setting = ":cpu",
 )
 
-# TODO(b/136237408): Remove this generic CPU name and replace with a specific one.
 constraint_value(
-    name = "arm",
+    name = "aarch64",
     constraint_setting = ":cpu",
+)
+
+alias(
+    name = "arm",
+    actual = ":aarch32",
 )
 
 # Cortex-M0, Cortex-M0+, Cortex-M1
@@ -55,13 +75,13 @@ constraint_value(
     constraint_setting = ":cpu",
 )
 
-constraint_value(
-    name = "arm64_32",
-    constraint_setting = ":cpu",
+alias(
+    name = "arm64",
+    actual = ":aarch64",
 )
 
 constraint_value(
-    name = "arm64",
+    name = "arm64_32",
     constraint_setting = ":cpu",
 )
 
@@ -81,12 +101,27 @@ constraint_value(
 )
 
 constraint_value(
+    name = "cortex-r52",
+    constraint_setting = ":cpu",
+)
+
+constraint_value(
+    name = "cortex-r82",
+    constraint_setting = ":cpu",
+)
+
+constraint_value(
     name = "i386",
     constraint_setting = ":cpu",
 )
 
 constraint_value(
     name = "ppc",
+    constraint_setting = ":cpu",
+)
+
+constraint_value(
+    name = "ppc32",
     constraint_setting = ":cpu",
 )
 

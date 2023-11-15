@@ -34,22 +34,41 @@ func (m {{ (msgTyp .).Pointer }}) validate(all bool) error {
 		{{ end }}
 
 		{{ range .RealOneOfs }}
-			switch m.{{ name . }}.(type) {
-				{{ range .Fields }}
+			{{- $oneof := . }}
+			{{- if required . }}
+			oneof{{ name $oneof }}Present := false
+			{{- end }}
+			switch v := m.{{ name . }}.(type) {
+				{{- range .Fields }}
+					{{- $context := (context .) }}
 					case {{ oneof . }}:
-						{{ render (context .) }}
-				{{ end }}
-				{{ if required . }}
-					default:
-						err := {{ errname .Message }}{
-							field: "{{ name . }}",
-							reason: "value is required",
+						if v == nil {
+							err := {{ errname .Message }}{
+								field: "{{ name $oneof }}",
+								reason: "oneof value cannot be a typed-nil",
+							}
+							if !all { return err }
+							errors = append(errors, err)
 						}
-						if !all { return err }
-						errors = append(errors, err)
-				{{ end }}
+						{{- if required $oneof }}
+						oneof{{ name $oneof }}Present = true
+						{{- end }}
+						{{ render $context }}
+				{{- end }}
+					default:
+						_ = v // ensures v is used
 			}
-		{{ end }}
+			{{- if required . }}
+			if !oneof{{ name $oneof }}Present {
+				err := {{ errname .Message }}{
+					field: "{{ name $oneof }}",
+					reason: "value is required",
+				}
+				if !all { return err }
+				errors = append(errors, err)
+			}
+			{{- end }}
+		{{- end }}
 
 		{{ range .SyntheticOneOfFields }}
 			if m.{{ name . }} != nil {
@@ -181,6 +200,13 @@ var _ interface{
 			{{- end }}
 		}
 	{{ end }}{{ end }}
+	{{ if has .Rules.Items.GetAny "In" }} {{ if .Rules.Items.GetAny.In }}
+		var {{ lookup .Field "InLookup" }} = map[string]struct{}{
+			{{- range .Rules.Items.GetAny.In }}
+				{{ inKey $f . }}: {},
+			{{- end }}
+		}
+	{{ end }}{{ end }}
 	{{ end }}{{ end }}
 
 	{{ if has .Rules "Items"}}{{ if .Rules.Items }}
@@ -194,6 +220,13 @@ var _ interface{
 	{{ if has .Rules.Items.GetEnum "NotIn" }} {{ if .Rules.Items.GetEnum.NotIn }}
 		var {{ lookup .Field "NotInLookup" }} = map[{{ inType .Field .Rules.Items.GetEnum.NotIn }}]struct{}{
 			{{- range .Rules.Items.GetEnum.NotIn }}
+				{{ inKey $f . }}: {},
+			{{- end }}
+		}
+	{{ end }}{{ end }}
+	{{ if has .Rules.Items.GetAny "NotIn" }} {{ if .Rules.Items.GetAny.NotIn }}
+		var {{ lookup .Field "NotInLookup" }} = map[string]struct{}{
+			{{- range .Rules.Items.GetAny.NotIn }}
 				{{ inKey $f . }}: {},
 			{{- end }}
 		}

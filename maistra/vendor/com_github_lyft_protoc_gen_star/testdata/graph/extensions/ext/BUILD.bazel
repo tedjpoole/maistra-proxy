@@ -14,7 +14,8 @@ proto_library(
 
 go_proto_library(
     name = "ext_go_proto",
-    importpath = "github.com/lyft/protoc-gen-star/testdata/graph/extensions/ext",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/graph/extensions/ext",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/graph/extensions/ext"],
     proto = ":ext_proto",
     visibility = ["//visibility:public"],
 )
@@ -22,7 +23,8 @@ go_proto_library(
 go_library(
     name = "ext",
     embed = [":ext_go_proto"],
-    importpath = "github.com/lyft/protoc-gen-star/testdata/graph/extensions/ext",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/graph/extensions/ext",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/graph/extensions/ext"],
     visibility = ["//visibility:public"],
 )
 

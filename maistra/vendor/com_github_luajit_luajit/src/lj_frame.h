@@ -1,6 +1,6 @@
 /*
 ** Stack frames.
-** Copyright (C) 2005-2020 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #ifndef _LJ_FRAME_H
@@ -192,12 +192,12 @@ enum { LJ_CONT_TAILCALL, LJ_CONT_FFI_CALLBACK };  /* Special continuations. */
 #endif
 #define CFRAME_SHIFT_MULTRES	3
 #elif LJ_TARGET_ARM64
-#define CFRAME_OFS_ERRF		196
-#define CFRAME_OFS_NRES		200
-#define CFRAME_OFS_PREV		160
-#define CFRAME_OFS_L		176
-#define CFRAME_OFS_PC		168
-#define CFRAME_OFS_MULTRES	192
+#define CFRAME_OFS_ERRF		36
+#define CFRAME_OFS_NRES		40
+#define CFRAME_OFS_PREV		0
+#define CFRAME_OFS_L		16
+#define CFRAME_OFS_PC		8
+#define CFRAME_OFS_MULTRES	32
 #define CFRAME_SIZE		208
 #define CFRAME_SHIFT_MULTRES	3
 #elif LJ_TARGET_PPC
@@ -264,20 +264,6 @@ enum { LJ_CONT_TAILCALL, LJ_CONT_FFI_CALLBACK };  /* Special continuations. */
 #endif
 #define CFRAME_OFS_MULTRES	0
 #define CFRAME_SHIFT_MULTRES	3
-#elif LJ_TARGET_S390X
-#define CFRAME_OFS_ERRF		280
-#define CFRAME_OFS_NRES		272
-#define CFRAME_OFS_PREV		264
-#define CFRAME_OFS_L		256
-#define CFRAME_OFS_PC		168
-#define CFRAME_OFS_MULTRES	160
-#define CFRAME_SIZE		240
-/*
-** TODO: it would be good if we always decoded param*8 like
-** the RISC architectures do. If so then SHIFT_MULTRES will
-** need to change to 3.
-*/
-#define CFRAME_SHIFT_MULTRES	0
 #else
 #error "Missing CFRAME_* definitions for this architecture"
 #endif

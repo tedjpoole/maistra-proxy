@@ -18,14 +18,16 @@ load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(":attrs.bzl", "swift_config_attrs")
-load(":compiling.bzl", "new_objc_provider", "output_groups_from_other_compilation_outputs")
+load(":compiling.bzl", "output_groups_from_other_compilation_outputs")
 load(
     ":feature_names.bzl",
     "SWIFT_FEATURE_EMIT_SWIFTINTERFACE",
     "SWIFT_FEATURE_ENABLE_LIBRARY_EVOLUTION",
     "SWIFT_FEATURE_ENABLE_TESTING",
     "SWIFT_FEATURE_GENERATE_FROM_RAW_PROTO_FILES",
+    "SWIFT_FEATURE_GENERATE_PATH_TO_UNDERSCORES_FROM_PROTO_FILES",
 )
+load(":linking.bzl", "new_objc_provider")
 load(
     ":proto_gen_utils.bzl",
     "declare_generated_files",
@@ -104,9 +106,11 @@ def _register_pbswift_generate_action(
         transitive_descriptor_sets,
         module_mapping_file,
         generate_from_proto_sources,
+        generate_path_to_underscores_from_proto_files,
         mkdir_and_run,
         protoc_executable,
-        protoc_plugin_executable):
+        protoc_plugin_executable,
+        host_path_separator):
     """Registers actions that generate `.pb.swift` files from `.proto` files.
 
     Args:
@@ -126,10 +130,14 @@ def _register_pbswift_generate_action(
             from proto source file vs just via the DescriptorSets. The Sets
             don't have source info, so the generated sources won't have
             comments (https://github.com/bazelbuild/bazel/issues/9337).
+        generate_path_to_underscores_from_proto_files: True/False for if
+            generation should use `FileNaming=PathToUnderscores` argument.
         mkdir_and_run: The `File` representing the `mkdir_and_run` executable.
         protoc_executable: The `File` representing the `protoc` executable.
         protoc_plugin_executable: The `File` representing the `protoc` plugin
             executable.
+        host_path_separator: Separator for the paths to use to join path
+            arguments.
 
     Returns:
         A list of generated `.pb.swift` files corresponding to the `.proto`
@@ -141,6 +149,7 @@ def _register_pbswift_generate_action(
         "pb",
         proto_source_root,
         direct_srcs,
+        generate_path_to_underscores_from_proto_files,
     )
     generated_dir_path = extract_generated_dir_path(
         label.name,
@@ -167,7 +176,12 @@ def _register_pbswift_generate_action(
         format = "--plugin=protoc-gen-swift=%s",
     )
     protoc_args.add(generated_dir_path, format = "--swift_out=%s")
-    protoc_args.add("--swift_opt=FileNaming=FullPath")
+
+    if generate_path_to_underscores_from_proto_files:
+        protoc_args.add("--swift_opt=FileNaming=PathToUnderscores")
+    else:
+        protoc_args.add("--swift_opt=FileNaming=FullPath")
+
     protoc_args.add("--swift_opt=Visibility=Public")
     if module_mapping_file:
         protoc_args.add(
@@ -176,7 +190,7 @@ def _register_pbswift_generate_action(
         )
     protoc_args.add_joined(
         transitive_descriptor_sets,
-        join_with = ":",
+        join_with = host_path_separator,
         format_joined = "--descriptor_set_in=%s",
         omit_if_empty = True,
     )
@@ -374,6 +388,10 @@ def _swift_protoc_gen_aspect_impl(target, aspect_ctx):
             feature_configuration = feature_configuration,
             feature_name = SWIFT_FEATURE_GENERATE_FROM_RAW_PROTO_FILES,
         )
+        generate_path_to_underscores_from_proto_files = swift_common.is_enabled(
+            feature_configuration = feature_configuration,
+            feature_name = SWIFT_FEATURE_GENERATE_PATH_TO_UNDERSCORES_FROM_PROTO_FILES,
+        )
 
         # Only the files for direct sources should be generated, but the
         # transitive descriptor sets are still need to be able to parse/load
@@ -399,9 +417,11 @@ def _swift_protoc_gen_aspect_impl(target, aspect_ctx):
             transitive_descriptor_sets,
             transitive_module_mapping_file,
             generate_from_proto_sources,
+            generate_path_to_underscores_from_proto_files,
             aspect_ctx.executable._mkdir_and_run,
             aspect_ctx.executable._protoc,
             aspect_ctx.executable._protoc_gen_swift,
+            aspect_ctx.configuration.host_path_separator,
         )
 
         module_name = swift_common.derive_module_name(target.label)
@@ -411,6 +431,7 @@ def _swift_protoc_gen_aspect_impl(target, aspect_ctx):
             copts = ["-parse-as-library"],
             deps = proto_deps + support_deps,
             feature_configuration = feature_configuration,
+            is_test = False,
             module_name = module_name,
             srcs = pbswift_files,
             swift_toolchain = swift_toolchain,
@@ -423,6 +444,7 @@ def _swift_protoc_gen_aspect_impl(target, aspect_ctx):
                 actions = aspect_ctx.actions,
                 compilation_outputs = cc_compilation_outputs,
                 feature_configuration = feature_configuration,
+                is_test = False,
                 label = target.label,
                 linking_contexts = [
                     dep[CcInfo].linking_context
@@ -477,8 +499,10 @@ def _swift_protoc_gen_aspect_impl(target, aspect_ctx):
             # `Objc` providers from `SwiftProtoCcInfo` above.
             deps = [],
             feature_configuration = feature_configuration,
+            is_test = False,
             module_context = module_context,
             libraries_to_link = [linking_output.library_to_link],
+            swift_toolchain = swift_toolchain,
         )
 
         cc_info = CcInfo(
@@ -566,12 +590,12 @@ swift_protoc_gen_aspect = aspect(
             ),
             "_protoc": attr.label(
                 cfg = "exec",
-                default = Label("@com_google_protobuf//:protoc"),
+                default = Label("//tools/protoc_wrapper:protoc"),
                 executable = True,
             ),
             "_protoc_gen_swift": attr.label(
                 cfg = "exec",
-                default = Label("@com_github_apple_swift_protobuf//:ProtoCompilerPlugin_wrapper"),
+                default = Label("//tools/protoc_wrapper:ProtoCompilerPlugin"),
                 executable = True,
             ),
         },

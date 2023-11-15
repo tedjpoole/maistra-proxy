@@ -55,15 +55,19 @@ swift_library(
 
 swift_library(
     name = "ButtonsTestsLib",
+    testonly = True,
     srcs = [
         "ButtonsTests/ButtonsTests.swift",
     ],
     module_name = "ButtonsTests",
-    deps = [":ButtonsLib"],
+    deps = [
+        ":ButtonsLib",
+    ],
 )
 
 swift_library(
     name = "ButtonsUITestsLib",
+    testonly = True,
     srcs = [
         "ButtonsUITests/ButtonsUITests.swift",
     ],
@@ -161,13 +165,6 @@ swift_library(
     module_name = "ButtonsWatchExtension",
 )
 
-## Resources
-
-objc_library(
-    name = "ButtonsWatchResources",
-    data = ["ButtonsWatch/Base.lproj/Interface.storyboard"],
-)
-
 ## Packaging
 
 watchos_application(
@@ -176,9 +173,7 @@ watchos_application(
     extension = ":ButtonsWatchExtension",
     infoplists = ["ButtonsWatch/Info.plist"],
     minimum_os_version = "3.0",
-    deps = [
-        ":ButtonsWatchResources",
-    ],
+    resources = ["ButtonsWatch/Base.lproj/Interface.storyboard"],
 )
 
 watchos_extension(
@@ -281,7 +276,9 @@ swift_library(
         "ButtonsMacTests/ButtonsMacTests.swift",
     ],
     module_name = "ButtonsMacTests",
-    deps = [":ButtonsMacLib"],
+    deps = [
+        ":ButtonsMacLib",
+    ],
 )
 
 swift_library(

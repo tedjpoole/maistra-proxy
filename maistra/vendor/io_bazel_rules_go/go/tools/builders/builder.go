@@ -28,7 +28,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("builder: ")
 
-	args, err := expandParamsFiles(os.Args[1:])
+	args, _, err := expandParamsFiles(os.Args[1:])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,14 +39,8 @@ func main() {
 
 	var action func(args []string) error
 	switch verb {
-	case "asm":
-		action = asm
-	case "compile":
-		action = compile
 	case "compilepkg":
 		action = compilePkg
-	case "cover":
-		action = cover
 	case "filterbuildid":
 		action = filterBuildID
 	case "gentestmain":
@@ -55,8 +49,6 @@ func main() {
 		action = link
 	case "gennogomain":
 		action = genNogoMain
-	case "pack":
-		action = pack
 	case "stdlib":
 		action = stdlib
 	case "stdliblist":

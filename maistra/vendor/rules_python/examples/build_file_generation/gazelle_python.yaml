@@ -1,3 +1,17 @@
+# Copyright 2023 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # GENERATED FILE - DO NOT EDIT!
 #
 # To update this file, run:
@@ -5,128 +19,113 @@
 
 manifest:
   modules_mapping:
-    certifi: certifi
-    certifi.__init__: certifi
-    certifi.__main__: certifi
-    certifi.core: certifi
-    chardet: chardet
-    chardet.__init__: chardet
-    chardet.big5freq: chardet
-    chardet.big5prober: chardet
-    chardet.chardistribution: chardet
-    chardet.charsetgroupprober: chardet
-    chardet.charsetprober: chardet
-    chardet.cli: chardet
-    chardet.cli.__init__: chardet
-    chardet.cli.chardetect: chardet
-    chardet.codingstatemachine: chardet
-    chardet.compat: chardet
-    chardet.cp949prober: chardet
-    chardet.enums: chardet
-    chardet.escprober: chardet
-    chardet.escsm: chardet
-    chardet.eucjpprober: chardet
-    chardet.euckrfreq: chardet
-    chardet.euckrprober: chardet
-    chardet.euctwfreq: chardet
-    chardet.euctwprober: chardet
-    chardet.gb2312freq: chardet
-    chardet.gb2312prober: chardet
-    chardet.hebrewprober: chardet
-    chardet.jisfreq: chardet
-    chardet.jpcntx: chardet
-    chardet.langbulgarianmodel: chardet
-    chardet.langcyrillicmodel: chardet
-    chardet.langgreekmodel: chardet
-    chardet.langhebrewmodel: chardet
-    chardet.langhungarianmodel: chardet
-    chardet.langthaimodel: chardet
-    chardet.langturkishmodel: chardet
-    chardet.latin1prober: chardet
-    chardet.mbcharsetprober: chardet
-    chardet.mbcsgroupprober: chardet
-    chardet.mbcssm: chardet
-    chardet.sbcharsetprober: chardet
-    chardet.sbcsgroupprober: chardet
-    chardet.sjisprober: chardet
-    chardet.universaldetector: chardet
-    chardet.utf8prober: chardet
-    chardet.version: chardet
-    idna: idna
-    idna.__init__: idna
-    idna.codec: idna
-    idna.compat: idna
-    idna.core: idna
-    idna.idnadata: idna
-    idna.intranges: idna
-    idna.package_data: idna
-    idna.uts46data: idna
-    requests: requests
-    requests.__init__: requests
-    requests.__version__: requests
-    requests._internal_utils: requests
-    requests.adapters: requests
-    requests.api: requests
-    requests.auth: requests
-    requests.certs: requests
-    requests.compat: requests
-    requests.cookies: requests
-    requests.exceptions: requests
-    requests.help: requests
-    requests.hooks: requests
-    requests.models: requests
-    requests.packages: requests
-    requests.sessions: requests
-    requests.status_codes: requests
-    requests.structures: requests
-    requests.utils: requests
-    urllib3: urllib3
-    urllib3.__init__: urllib3
-    urllib3._collections: urllib3
-    urllib3._version: urllib3
-    urllib3.connection: urllib3
-    urllib3.connectionpool: urllib3
-    urllib3.contrib: urllib3
-    urllib3.contrib.__init__: urllib3
-    urllib3.contrib._appengine_environ: urllib3
-    urllib3.contrib._securetransport: urllib3
-    urllib3.contrib._securetransport.__init__: urllib3
-    urllib3.contrib._securetransport.bindings: urllib3
-    urllib3.contrib._securetransport.low_level: urllib3
-    urllib3.contrib.appengine: urllib3
-    urllib3.contrib.ntlmpool: urllib3
-    urllib3.contrib.pyopenssl: urllib3
-    urllib3.contrib.securetransport: urllib3
-    urllib3.contrib.socks: urllib3
-    urllib3.exceptions: urllib3
-    urllib3.fields: urllib3
-    urllib3.filepost: urllib3
-    urllib3.packages: urllib3
-    urllib3.packages.__init__: urllib3
-    urllib3.packages.backports: urllib3
-    urllib3.packages.backports.__init__: urllib3
-    urllib3.packages.backports.makefile: urllib3
-    urllib3.packages.six: urllib3
-    urllib3.packages.ssl_match_hostname: urllib3
-    urllib3.packages.ssl_match_hostname.__init__: urllib3
-    urllib3.packages.ssl_match_hostname._implementation: urllib3
-    urllib3.poolmanager: urllib3
-    urllib3.request: urllib3
-    urllib3.response: urllib3
-    urllib3.util: urllib3
-    urllib3.util.__init__: urllib3
-    urllib3.util.connection: urllib3
-    urllib3.util.proxy: urllib3
-    urllib3.util.queue: urllib3
-    urllib3.util.request: urllib3
-    urllib3.util.response: urllib3
-    urllib3.util.retry: urllib3
-    urllib3.util.ssl_: urllib3
-    urllib3.util.ssltransport: urllib3
-    urllib3.util.timeout: urllib3
-    urllib3.util.url: urllib3
-    urllib3.util.wait: urllib3
+    click: click
+    click.core: click
+    click.decorators: click
+    click.exceptions: click
+    click.formatting: click
+    click.globals: click
+    click.parser: click
+    click.shell_completion: click
+    click.termui: click
+    click.testing: click
+    click.types: click
+    click.utils: click
+    flask: Flask
+    flask.app: Flask
+    flask.blueprints: Flask
+    flask.cli: Flask
+    flask.config: Flask
+    flask.ctx: Flask
+    flask.debughelpers: Flask
+    flask.globals: Flask
+    flask.helpers: Flask
+    flask.json: Flask
+    flask.json.provider: Flask
+    flask.json.tag: Flask
+    flask.logging: Flask
+    flask.scaffold: Flask
+    flask.sessions: Flask
+    flask.signals: Flask
+    flask.templating: Flask
+    flask.testing: Flask
+    flask.typing: Flask
+    flask.views: Flask
+    flask.wrappers: Flask
+    importlib_metadata: importlib_metadata
+    itsdangerous: itsdangerous
+    itsdangerous.encoding: itsdangerous
+    itsdangerous.exc: itsdangerous
+    itsdangerous.serializer: itsdangerous
+    itsdangerous.signer: itsdangerous
+    itsdangerous.timed: itsdangerous
+    itsdangerous.url_safe: itsdangerous
+    jinja2: Jinja2
+    jinja2.async_utils: Jinja2
+    jinja2.bccache: Jinja2
+    jinja2.compiler: Jinja2
+    jinja2.constants: Jinja2
+    jinja2.debug: Jinja2
+    jinja2.defaults: Jinja2
+    jinja2.environment: Jinja2
+    jinja2.exceptions: Jinja2
+    jinja2.ext: Jinja2
+    jinja2.filters: Jinja2
+    jinja2.idtracking: Jinja2
+    jinja2.lexer: Jinja2
+    jinja2.loaders: Jinja2
+    jinja2.meta: Jinja2
+    jinja2.nativetypes: Jinja2
+    jinja2.nodes: Jinja2
+    jinja2.optimizer: Jinja2
+    jinja2.parser: Jinja2
+    jinja2.runtime: Jinja2
+    jinja2.sandbox: Jinja2
+    jinja2.utils: Jinja2
+    jinja2.visitor: Jinja2
+    markupsafe: MarkupSafe
+    werkzeug: Werkzeug
+    werkzeug.datastructures: Werkzeug
+    werkzeug.debug: Werkzeug
+    werkzeug.debug.console: Werkzeug
+    werkzeug.debug.repr: Werkzeug
+    werkzeug.debug.tbtools: Werkzeug
+    werkzeug.exceptions: Werkzeug
+    werkzeug.formparser: Werkzeug
+    werkzeug.http: Werkzeug
+    werkzeug.local: Werkzeug
+    werkzeug.middleware: Werkzeug
+    werkzeug.middleware.dispatcher: Werkzeug
+    werkzeug.middleware.http_proxy: Werkzeug
+    werkzeug.middleware.lint: Werkzeug
+    werkzeug.middleware.profiler: Werkzeug
+    werkzeug.middleware.proxy_fix: Werkzeug
+    werkzeug.middleware.shared_data: Werkzeug
+    werkzeug.routing: Werkzeug
+    werkzeug.routing.converters: Werkzeug
+    werkzeug.routing.exceptions: Werkzeug
+    werkzeug.routing.map: Werkzeug
+    werkzeug.routing.matcher: Werkzeug
+    werkzeug.routing.rules: Werkzeug
+    werkzeug.sansio: Werkzeug
+    werkzeug.sansio.http: Werkzeug
+    werkzeug.sansio.multipart: Werkzeug
+    werkzeug.sansio.request: Werkzeug
+    werkzeug.sansio.response: Werkzeug
+    werkzeug.sansio.utils: Werkzeug
+    werkzeug.security: Werkzeug
+    werkzeug.serving: Werkzeug
+    werkzeug.test: Werkzeug
+    werkzeug.testapp: Werkzeug
+    werkzeug.urls: Werkzeug
+    werkzeug.user_agent: Werkzeug
+    werkzeug.utils: Werkzeug
+    werkzeug.wrappers: Werkzeug
+    werkzeug.wrappers.request: Werkzeug
+    werkzeug.wrappers.response: Werkzeug
+    werkzeug.wsgi: Werkzeug
+    zipp: zipp
+    zipp.py310compat: zipp
   pip_repository:
     name: pip
-    incremental: true
-integrity: c47bf2ca0a185cf6b8815d4a61e26e7457564e931de76c70653277e4eccfadc8
+integrity: 2c84a3cabeaff134a1d045e5a173a3178086f236ab20f895ffbd7f3b7a6e5bb0

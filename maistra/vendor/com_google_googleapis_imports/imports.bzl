@@ -22,9 +22,6 @@ def java_grpc_library(**kwargs):
 def java_gapic_library(**kwargs):
     pass
 
-def java_resource_name_proto_library(**kwargs):
-    pass
-
 def java_gapic_test(**kwargs):
     pass
 
@@ -37,6 +34,9 @@ def py_grpc_library(**kwargs):
     pass
 
 def py_gapic_library(**kwargs):
+    pass
+
+def py_test(**kwargs):
     pass
 
 def py_gapic_assembly_pkg(**kwargs):
@@ -86,7 +86,10 @@ def ruby_proto_library(**kwargs):
 def ruby_grpc_library(**kwargs):
     pass
 
-def ruby_gapic_library(**kwargs):
+def ruby_ads_gapic_library(**kwargs):
+    pass
+
+def ruby_cloud_gapic_library(**kwargs):
     pass
 
 def ruby_gapic_assembly_pkg(**kwargs):

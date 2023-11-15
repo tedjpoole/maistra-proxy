@@ -1,29 +1,20 @@
 workspace(name = "rules_python_pip_install_example")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "bazel_skylib",
-    sha256 = "c6966ec828da198c5d9adbaa94c05e3a1c7f21bd012a0b29ba8ddbccb2c93b0d",
-    urls = [
-        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.1.1/bazel-skylib-1.1.1.tar.gz",
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.1.1/bazel-skylib-1.1.1.tar.gz",
-    ],
-)
-
 local_repository(
     name = "rules_python",
     path = "../..",
 )
 
-load("@rules_python//python:repositories.bzl", "python_register_toolchains")
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+py_repositories()
 
 python_register_toolchains(
     name = "python39",
     python_version = "3.9",
 )
 
-load("@python39_resolved_interpreter//:defs.bzl", "interpreter")
+load("@python39//:defs.bzl", "interpreter")
 load("@rules_python//python:pip.bzl", "pip_install")
 
 pip_install(
@@ -50,12 +41,17 @@ pip_install(
     # (Optional) You can set an environment in the pip process to control its
     # behavior. Note that pip is run in "isolated" mode so no PIP_<VAR>_<NAME>
     # style env vars are read, but env vars that control requests and urllib3
-    # can be passed
+    # can be passed.
     #environment = {"HTTP_PROXY": "http://my.proxy.fun/"},
 
     # Uses the default repository name "pip"
     requirements = "//:requirements.txt",
 )
+
+load("@pip//:requirements.bzl", "install_deps")
+
+# Initialize repositories for all packages in requirements.txt.
+install_deps()
 
 # You could optionally use an in-build, compiled python interpreter as a toolchain,
 # and also use it to execute pip.

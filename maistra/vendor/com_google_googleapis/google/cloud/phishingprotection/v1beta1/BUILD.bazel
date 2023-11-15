@@ -55,13 +55,14 @@ java_grpc_library(
 
 java_gapic_library(
     name = "phishingprotection_java_gapic",
-    src = ":phishingprotection_proto_with_info",
+    srcs = [":phishingprotection_proto_with_info"],
     gapic_yaml = "phishingprotection_gapic.yaml",
-    package = "google.cloud.phishingprotection.v1beta1",
-    service_yaml = "phishingprotection_v1beta1.yaml",
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":phishingprotection_java_grpc",
     ],
+    transport = "grpc+rest",
     deps = [
         ":phishingprotection_java_proto",
     ],
@@ -70,6 +71,7 @@ java_gapic_library(
 java_gapic_test(
     name = "phishingprotection_java_gapic_test_suite",
     test_classes = [
+        "com.google.cloud.phishingprotection.v1beta1.PhishingProtectionServiceV1Beta1ClientHttpJsonTest",
         "com.google.cloud.phishingprotection.v1beta1.PhishingProtectionServiceV1Beta1ClientTest",
     ],
     runtime_deps = [":phishingprotection_java_gapic_test"],
@@ -78,6 +80,8 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-phishingprotection-v1beta1-java",
+    include_samples = True,
+    transport = "grpc+rest",
     deps = [
         ":phishingprotection_java_gapic",
         ":phishingprotection_java_grpc",
@@ -109,11 +113,12 @@ go_proto_library(
 
 go_gapic_library(
     name = "phishingprotection_go_gapic",
-    src = ":phishingprotection_proto_with_info",
-    gapic_yaml = "phishingprotection_gapic.yaml",
-    importpath = "cloud.google.com/go/phishingprotection/apiv1beta1",
-    package = "google.cloud.phishingprotection.v1beta1",
+    srcs = [":phishingprotection_proto_with_info"],
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
+    importpath = "cloud.google.com/go/phishingprotection/apiv1beta1;phishingprotection",
+    rest_numeric_enums = True,
     service_yaml = "phishingprotection_v1beta1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":phishingprotection_go_proto",
     ],
@@ -131,7 +136,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-phishingprotection-v1beta1-go",
     deps = [
         ":phishingprotection_go_gapic",
-        ":phishingprotection_go_gapic_srcjar-smoke-test.srcjar",
         ":phishingprotection_go_gapic_srcjar-test.srcjar",
         ":phishingprotection_go_proto",
     ],
@@ -142,55 +146,36 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "phishingprotection_moved_proto",
-    srcs = [":phishingprotection_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-    ],
-)
-
-py_proto_library(
-    name = "phishingprotection_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":phishingprotection_moved_proto"],
-)
-
-py_grpc_library(
-    name = "phishingprotection_py_grpc",
-    srcs = [":phishingprotection_moved_proto"],
-    deps = [":phishingprotection_py_proto"],
+    "py_test",
 )
 
 py_gapic_library(
     name = "phishingprotection_py_gapic",
-    src = ":phishingprotection_proto_with_info",
-    gapic_yaml = "phishingprotection_gapic.yaml",
-    package = "google.cloud.phishingprotection.v1beta1",
-    service_yaml = "phishingprotection_v1beta1.yaml",
-    deps = [
-        ":phishingprotection_py_grpc",
-        ":phishingprotection_py_proto",
+    srcs = [":phishingprotection_proto"],
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
+    opt_args = [
+        "warehouse-package-name=google-cloud-phishing-protection",
     ],
+    rest_numeric_enums = True,
+    transport = "grpc",
 )
 
-# Open Source Packages
+py_test(
+    name = "phishingprotection_py_gapic_test",
+    srcs = [
+        "phishingprotection_py_gapic_pytest.py",
+        "phishingprotection_py_gapic_test.py",
+    ],
+    legacy_create_init = False,
+    deps = [":phishingprotection_py_gapic"],
+)
+
 py_gapic_assembly_pkg(
     name = "phishingprotection-v1beta1-py",
     deps = [
         ":phishingprotection_py_gapic",
-        ":phishingprotection_py_grpc",
-        ":phishingprotection_py_proto",
     ],
 )
 
@@ -218,10 +203,10 @@ php_grpc_library(
 
 php_gapic_library(
     name = "phishingprotection_php_gapic",
-    src = ":phishingprotection_proto_with_info",
-    gapic_yaml = "phishingprotection_gapic.yaml",
-    package = "google.cloud.phishingprotection.v1beta1",
-    service_yaml = "phishingprotection_v1beta1.yaml",
+    srcs = [":phishingprotection_proto_with_info"],
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc+rest",
     deps = [
         ":phishingprotection_php_grpc",
         ":phishingprotection_php_proto",
@@ -249,10 +234,14 @@ load(
 
 nodejs_gapic_library(
     name = "phishingprotection_nodejs_gapic",
+    package_name = "@google-cloud/phishing-protection",
     src = ":phishingprotection_proto_with_info",
-    gapic_yaml = "phishingprotection_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
     package = "google.cloud.phishingprotection.v1beta1",
+    rest_numeric_enums = True,
     service_yaml = "phishingprotection_v1beta1.yaml",
+    transport = "grpc+rest",
     deps = [],
 )
 
@@ -269,8 +258,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -286,12 +275,21 @@ ruby_grpc_library(
     deps = [":phishingprotection_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "phishingprotection_ruby_gapic",
-    src = ":phishingprotection_proto_with_info",
-    gapic_yaml = "phishingprotection_gapic.yaml",
-    package = "google.cloud.phishingprotection.v1beta1",
-    service_yaml = "phishingprotection_v1beta1.yaml",
+    srcs = [":phishingprotection_proto_with_info"],
+    extra_protoc_parameters = [
+        "ruby-cloud-gem-name=google-cloud-phishing_protection-v1beta1",
+        "ruby-cloud-env-prefix=PHISHING_PROTECTION",
+        "ruby-cloud-product-url=https://cloud.google.com/phishing-protection",
+        "ruby-cloud-api-id=phishingprotection.googleapis.com",
+        "ruby-cloud-api-shortname=phishingprotection",
+        "ruby-cloud-service-override=PhishingProtectionServiceV1Beta1=PhishingProtectionService",
+    ],
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
+    rest_numeric_enums = True,
+    ruby_cloud_description = "Phishing Protection helps prevent users from accessing phishing sites by identifying various signals associated with malicious content, including the use of your brand assets, classifying malicious content that uses your brand and reporting the unsafe URLs to Google Safe Browsing.",
+    ruby_cloud_title = "Phishing Protection V1beta1",
     deps = [
         ":phishingprotection_ruby_grpc",
         ":phishingprotection_ruby_proto",
@@ -332,9 +330,10 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "phishingprotection_csharp_gapic",
-    src = ":phishingprotection_proto_with_info",
-    gapic_yaml = "phishingprotection_gapic.yaml",
-    package = "google.cloud.phishingprotection.v1beta1",
+    srcs = [":phishingprotection_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "phishingprotection_grpc_service_config.json",
+    rest_numeric_enums = True,
     service_yaml = "phishingprotection_v1beta1.yaml",
     deps = [
         ":phishingprotection_csharp_grpc",

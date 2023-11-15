@@ -1,3 +1,5 @@
+c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+SPDX-License-Identifier: curl
 Long: config
 Arg: <file>
 Help: Read config from a file
@@ -6,6 +8,7 @@ Category: curl
 Example: --config file.txt $URL
 Added: 4.10
 See-also: disable
+Multi: append
 ---
 Specify a text file to read curl arguments from. The command line arguments
 found in the text file will be used as if they were provided on the command
@@ -26,7 +29,8 @@ preceding any other letter is ignored.
 If the first column of a config line is a '#' character, the rest of the line
 will be treated as a comment.
 
-Only write one option per physical line in the config file.
+Only write one option per physical line in the config file. A single line is
+required to be no more than 10 megabytes (since 8.2.0).
 
 Specify the filename to --config as '-' to make curl read the file from stdin.
 
@@ -54,7 +58,7 @@ config file is checked for in the following places in this order:
 
 1) "$CURL_HOME/.curlrc"
 
-2) "$XDG_CONFIG_HOME/.curlrc" (Added in 7.73.0)
+2) "$XDG_CONFIG_HOME/curlrc" (Added in 7.73.0)
 
 3) "$HOME/.curlrc"
 
@@ -71,5 +75,3 @@ checks for one in the same dir the curl executable is placed.
 
 On Windows two filenames are checked per location: .curlrc and _curlrc,
 preferring the former. Older versions on Windows checked for _curlrc only.
-
-This option can be used multiple times to load multiple config files.

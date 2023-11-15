@@ -17,6 +17,8 @@
 #ifndef FLATBUFFERS_IDL_H_
 #define FLATBUFFERS_IDL_H_
 
+#include <algorithm>
+#include <functional>
 #include <map>
 #include <memory>
 #include <stack>
@@ -26,10 +28,6 @@
 #include "flatbuffers/flexbuffers.h"
 #include "flatbuffers/hash.h"
 #include "flatbuffers/reflection.h"
-
-#if !defined(FLATBUFFERS_CPP98_STL)
-#  include <functional>
-#endif  // !defined(FLATBUFFERS_CPP98_STL)
 
 // This file defines the data types representing a parsed IDL (Interface
 // Definition Language) / schema file.
@@ -75,8 +73,8 @@ namespace flatbuffers {
 // - Go type.
 // - C# / .Net type.
 // - Python type.
-// - Rust type.
 // - Kotlin type.
+// - Rust type.
 
 // using these macros, we can now write code dealing with types just once, e.g.
 
@@ -167,7 +165,7 @@ struct Type {
         enum_def(_ed),
         fixed_length(_fixed_length) {}
 
-  bool operator==(const Type &o) {
+  bool operator==(const Type &o) const {
     return base_type == o.base_type && element == o.element &&
            struct_def == o.struct_def && enum_def == o.enum_def;
   }
@@ -207,7 +205,7 @@ template<typename T> class SymbolTable {
   }
 
   bool Add(const std::string &name, T *e) {
-    vector_emplace_back(&vec, e);
+    vec.emplace_back(e);
     auto it = dict.find(name);
     if (it != dict.end()) return true;
     dict[name] = e;
@@ -266,7 +264,8 @@ struct Definition {
         defined_namespace(nullptr),
         serialized_location(0),
         index(-1),
-        refcount(1) {}
+        refcount(1),
+        declaration_file(nullptr) {}
 
   flatbuffers::Offset<
       flatbuffers::Vector<flatbuffers::Offset<reflection::KeyValue>>>
@@ -286,6 +285,7 @@ struct Definition {
   uoffset_t serialized_location;
   int index;  // Inside the vector it is stored.
   int refcount;
+  const std::string *declaration_file;
 };
 
 struct FieldDef : public Definition {
@@ -296,7 +296,7 @@ struct FieldDef : public Definition {
         native_inline(false),
         flexbuffer(false),
         presence(kDefault),
-        nested_flatbuffer(NULL),
+        nested_flatbuffer(nullptr),
         padding(0) {}
 
   Offset<reflection::Field> Serialize(FlatBufferBuilder *builder, uint16_t id,
@@ -307,15 +307,9 @@ struct FieldDef : public Definition {
   bool IsScalarOptional() const {
     return IsScalar(value.type.base_type) && IsOptional();
   }
-  bool IsOptional() const {
-    return presence == kOptional;
-  }
-  bool IsRequired() const {
-    return presence == kRequired;
-  }
-  bool IsDefault() const {
-    return presence == kDefault;
-  }
+  bool IsOptional() const { return presence == kOptional; }
+  bool IsRequired() const { return presence == kRequired; }
+  bool IsDefault() const { return presence == kDefault; }
 
   Value value;
   bool deprecated;  // Field is allowed to be present in old data, but can't be.
@@ -389,7 +383,14 @@ struct EnumVal {
   Offset<reflection::EnumVal> Serialize(FlatBufferBuilder *builder,
                                         const Parser &parser) const;
 
-  bool Deserialize(const Parser &parser, const reflection::EnumVal *val);
+  bool Deserialize(Parser &parser, const reflection::EnumVal *val);
+
+  flatbuffers::Offset<
+      flatbuffers::Vector<flatbuffers::Offset<reflection::KeyValue>>>
+  SerializeAttributes(FlatBufferBuilder *builder, const Parser &parser) const;
+
+  bool DeserializeAttributes(Parser &parser,
+                             const Vector<Offset<reflection::KeyValue>> *attrs);
 
   uint64_t GetAsUInt64() const { return static_cast<uint64_t>(value); }
   int64_t GetAsInt64() const { return value; }
@@ -399,6 +400,7 @@ struct EnumVal {
   std::string name;
   std::vector<std::string> doc_comment;
   Type union_type;
+  SymbolTable<Value> attributes;
 
  private:
   friend EnumDef;
@@ -471,12 +473,32 @@ inline bool IsStruct(const Type &type) {
   return type.base_type == BASE_TYPE_STRUCT && type.struct_def->fixed;
 }
 
+inline bool IsIncompleteStruct(const Type &type) {
+  return type.base_type == BASE_TYPE_STRUCT && type.struct_def->predecl;
+}
+
+inline bool IsTable(const Type &type) {
+  return type.base_type == BASE_TYPE_STRUCT && !type.struct_def->fixed;
+}
+
 inline bool IsUnion(const Type &type) {
   return type.enum_def != nullptr && type.enum_def->is_union;
 }
 
+inline bool IsUnionType(const Type &type) {
+  return IsUnion(type) && IsInteger(type.base_type);
+}
+
 inline bool IsVector(const Type &type) {
   return type.base_type == BASE_TYPE_VECTOR;
+}
+
+inline bool IsVectorOfStruct(const Type &type) {
+  return IsVector(type) && IsStruct(type.VectorType());
+}
+
+inline bool IsVectorOfTable(const Type &type) {
+  return IsVector(type) && IsTable(type.VectorType());
 }
 
 inline bool IsArray(const Type &type) {
@@ -519,8 +541,11 @@ inline bool operator!=(const EnumVal &lhs, const EnumVal &rhs) {
 inline bool EqualByName(const Type &a, const Type &b) {
   return a.base_type == b.base_type && a.element == b.element &&
          (a.struct_def == b.struct_def ||
-          a.struct_def->name == b.struct_def->name) &&
-         (a.enum_def == b.enum_def || a.enum_def->name == b.enum_def->name);
+          (a.struct_def != nullptr && b.struct_def != nullptr &&
+           a.struct_def->name == b.struct_def->name)) &&
+         (a.enum_def == b.enum_def ||
+          (a.enum_def != nullptr && b.enum_def != nullptr &&
+           a.enum_def->name == b.enum_def->name));
 }
 
 struct RPCCall : public Definition {
@@ -540,17 +565,40 @@ struct ServiceDef : public Definition {
   SymbolTable<RPCCall> calls;
 };
 
+struct IncludedFile {
+  // The name of the schema file being included, as defined in the .fbs file.
+  // This includes the prefix (e.g., include "foo/bar/baz.fbs" would mean this
+  // value is "foo/bar/baz.fbs").
+  std::string schema_name;
+
+  // The filename of where the included file was found, after searching the
+  // relative paths plus any other paths included with `flatc -I ...`. Note,
+  // while this is sometimes the same as schema_name, it is not always, since it
+  // can be defined relative to where flatc was invoked.
+  std::string filename;
+};
+
+// Since IncludedFile is contained within a std::set, need to provide ordering.
+inline bool operator<(const IncludedFile &a, const IncludedFile &b) {
+  return a.filename < b.filename;
+}
+
 // Container of options that may apply to any of the source/text generators.
 struct IDLOptions {
+  // field case style options for C++
+  enum CaseStyle { CaseStyle_Unchanged = 0, CaseStyle_Upper, CaseStyle_Lower };
+
   bool gen_jvmstatic;
   // Use flexbuffers instead for binary and text generation
   bool use_flexbuffers;
   bool strict_json;
   bool output_default_scalars_in_json;
   int indent_step;
+  bool cpp_minify_enums;
   bool output_enum_identifiers;
   bool prefixed_enums;
   bool scoped_enums;
+  bool swift_implementation_only;
   bool include_dependence_headers;
   bool mutable_buffer;
   bool one_file;
@@ -564,22 +612,25 @@ struct IDLOptions {
   std::string cpp_object_api_pointer_type;
   std::string cpp_object_api_string_type;
   bool cpp_object_api_string_flexible_constructor;
+  CaseStyle cpp_object_api_field_case_style;
   bool cpp_direct_copy;
   bool gen_nullable;
   bool java_checkerframework;
   bool gen_generated;
+  bool gen_json_coders;
   std::string object_prefix;
   std::string object_suffix;
   bool union_value_namespacing;
   bool allow_non_utf8;
   bool natural_utf8;
   std::string include_prefix;
-  bool keep_include_path;
+  bool keep_prefix;
   bool binary_schema_comments;
   bool binary_schema_builtins;
   bool binary_schema_gen_embed;
   std::string go_import;
   std::string go_namespace;
+  std::string go_module_name;
   bool protobuf_ascii_alike;
   bool size_prefixed;
   std::string root_type;
@@ -593,6 +644,15 @@ struct IDLOptions {
   std::string filename_suffix;
   std::string filename_extension;
   bool no_warnings;
+  bool warnings_as_errors;
+  std::string project_root;
+  bool cs_global_alias;
+  bool json_nested_flatbuffers;
+  bool json_nested_flexbuffers;
+  bool json_nested_legacy_flatbuffers;
+  bool ts_flat_file;
+  bool no_leak_private_annotations;
+  bool require_json_eof;
 
   // Possible options for the more general generator below.
   enum Language {
@@ -612,10 +672,9 @@ struct IDLOptions {
     kRust = 1 << 14,
     kKotlin = 1 << 15,
     kSwift = 1 << 16,
+    kNim = 1 << 17,
     kMAX
   };
-
-  Language lang;
 
   enum MiniReflect { kNone, kTypes, kTypesAndNames };
 
@@ -623,6 +682,12 @@ struct IDLOptions {
 
   // If set, require all fields in a table to be explicitly numbered.
   bool require_explicit_ids;
+
+  // If set, implement serde::Serialize for generated Rust types
+  bool rust_serialize;
+
+  // If set, generate rust types in individual files with a root module file.
+  bool rust_module_root_file;
 
   // The corresponding language bit will be set if a language is included
   // for code generation.
@@ -642,9 +707,11 @@ struct IDLOptions {
         strict_json(false),
         output_default_scalars_in_json(false),
         indent_step(2),
+        cpp_minify_enums(false),
         output_enum_identifiers(true),
         prefixed_enums(true),
         scoped_enums(false),
+        swift_implementation_only(false),
         include_dependence_headers(true),
         mutable_buffer(false),
         one_file(false),
@@ -657,15 +724,17 @@ struct IDLOptions {
         gen_compare(false),
         cpp_object_api_pointer_type("std::unique_ptr"),
         cpp_object_api_string_flexible_constructor(false),
+        cpp_object_api_field_case_style(CaseStyle_Unchanged),
         cpp_direct_copy(true),
         gen_nullable(false),
         java_checkerframework(false),
         gen_generated(false),
+        gen_json_coders(false),
         object_suffix("T"),
         union_value_namespacing(true),
         allow_non_utf8(false),
         natural_utf8(false),
-        keep_include_path(false),
+        keep_prefix(false),
         binary_schema_comments(false),
         binary_schema_builtins(false),
         binary_schema_gen_embed(false),
@@ -678,9 +747,19 @@ struct IDLOptions {
         filename_suffix("_generated"),
         filename_extension(),
         no_warnings(false),
-        lang(IDLOptions::kJava),
+        warnings_as_errors(false),
+        project_root(""),
+        cs_global_alias(false),
+        json_nested_flatbuffers(true),
+        json_nested_flexbuffers(true),
+        json_nested_legacy_flatbuffers(false),
+        ts_flat_file(false),
+        no_leak_private_annotations(false),
+        require_json_eof(true),
         mini_reflect(IDLOptions::kNone),
         require_explicit_ids(false),
+        rust_serialize(false),
+        rust_module_root_file(false),
         lang_to_generate(0),
         set_empty_strings_to_null(true),
         set_empty_vectors_to_null(true) {}
@@ -689,7 +768,8 @@ struct IDLOptions {
 // This encapsulates where the parser is in the current source file.
 struct ParserState {
   ParserState()
-      : cursor_(nullptr),
+      : prev_cursor_(nullptr),
+        cursor_(nullptr),
         line_start_(nullptr),
         line_(0),
         token_(-1),
@@ -697,6 +777,7 @@ struct ParserState {
 
  protected:
   void ResetState(const char *source) {
+    prev_cursor_ = source;
     cursor_ = source;
     line_ = 0;
     MarkNewLine();
@@ -711,7 +792,8 @@ struct ParserState {
     FLATBUFFERS_ASSERT(cursor_ && line_start_ && cursor_ >= line_start_);
     return static_cast<int64_t>(cursor_ - line_start_);
   }
-
+  
+  const char *prev_cursor_;
   const char *cursor_;
   const char *line_start_;
   int line_;  // the current line being parsed
@@ -780,6 +862,7 @@ class Parser : public ParserState {
         root_struct_def_(nullptr),
         opts(options),
         uses_flexbuffers_(false),
+        has_warning_(false),
         advanced_features_(0),
         source_(nullptr),
         anonymous_counter_(0),
@@ -838,6 +921,9 @@ class Parser : public ParserState {
 
   bool ParseJson(const char *json, const char *json_filename = nullptr);
 
+  // Returns the number of characters were consumed when parsing a JSON string.
+  std::ptrdiff_t BytesConsumed() const;
+
   // Set the root type. May override the one set in the schema.
   bool SetRootType(const char *name);
 
@@ -882,6 +968,11 @@ class Parser : public ParserState {
   // in a schema.
   // @param opts Options used to parce a schema and generate code.
   static bool SupportsOptionalScalars(const flatbuffers::IDLOptions &opts);
+
+  // Get the set of included files that are directly referenced by the file
+  // being parsed. This does not include files that are transitively included by
+  // others includes.
+  std::vector<IncludedFile> GetIncludedFiles() const;
 
  private:
   class ParseDepthGuard;
@@ -942,16 +1033,18 @@ class Parser : public ParserState {
   StructDef *LookupCreateStruct(const std::string &name,
                                 bool create_if_new = true,
                                 bool definition = false);
-  FLATBUFFERS_CHECKED_ERROR ParseEnum(bool is_union, EnumDef **dest);
+  FLATBUFFERS_CHECKED_ERROR ParseEnum(bool is_union, EnumDef **dest,
+                                      const char *filename);
   FLATBUFFERS_CHECKED_ERROR ParseNamespace();
   FLATBUFFERS_CHECKED_ERROR StartStruct(const std::string &name,
                                         StructDef **dest);
   FLATBUFFERS_CHECKED_ERROR StartEnum(const std::string &name, bool is_union,
                                       EnumDef **dest);
-  FLATBUFFERS_CHECKED_ERROR ParseDecl();
-  FLATBUFFERS_CHECKED_ERROR ParseService();
+  FLATBUFFERS_CHECKED_ERROR ParseDecl(const char *filename);
+  FLATBUFFERS_CHECKED_ERROR ParseService(const char *filename);
   FLATBUFFERS_CHECKED_ERROR ParseProtoFields(StructDef *struct_def,
                                              bool isextend, bool inside_oneof);
+  FLATBUFFERS_CHECKED_ERROR ParseProtoMapField(StructDef *struct_def);
   FLATBUFFERS_CHECKED_ERROR ParseProtoOption();
   FLATBUFFERS_CHECKED_ERROR ParseProtoKey();
   FLATBUFFERS_CHECKED_ERROR ParseProtoDecl();
@@ -966,6 +1059,9 @@ class Parser : public ParserState {
   FLATBUFFERS_CHECKED_ERROR ParseRoot(const char *_source,
                                       const char **include_paths,
                                       const char *source_filename);
+  FLATBUFFERS_CHECKED_ERROR CheckPrivateLeak();
+  FLATBUFFERS_CHECKED_ERROR CheckPrivatelyLeakedFields(
+      const Definition &def, const Definition &value_type);
   FLATBUFFERS_CHECKED_ERROR DoParse(const char *_source,
                                     const char **include_paths,
                                     const char *source_filename,
@@ -986,6 +1082,8 @@ class Parser : public ParserState {
   FLATBUFFERS_CHECKED_ERROR RecurseError();
   template<typename F> CheckedError Recurse(F f);
 
+  const std::string &GetPooledString(const std::string &s) const;
+
  public:
   SymbolTable<Type> types_;
   SymbolTable<StructDef> structs_;
@@ -1004,32 +1102,33 @@ class Parser : public ParserState {
   std::string file_extension_;
 
   std::map<uint64_t, std::string> included_files_;
-  std::map<std::string, std::set<std::string>> files_included_per_file_;
+  std::map<std::string, std::set<IncludedFile>> files_included_per_file_;
   std::vector<std::string> native_included_files_;
 
   std::map<std::string, bool> known_attributes_;
 
   IDLOptions opts;
   bool uses_flexbuffers_;
+  bool has_warning_;
 
   uint64_t advanced_features_;
+
+  std::string file_being_parsed_;
 
  private:
   const char *source_;
 
-  std::string file_being_parsed_;
-
   std::vector<std::pair<Value, FieldDef *>> field_stack_;
+
+  // TODO(cneo): Refactor parser to use string_cache more often to save
+  // on memory usage.
+  mutable std::set<std::string> string_cache_;
 
   int anonymous_counter_;
   int parse_depth_counter_;  // stack-overflow guard
 };
 
 // Utility functions for multiple generators:
-
-extern std::string MakeCamel(const std::string &in, bool first = true);
-
-extern std::string MakeScreamingCamel(const std::string &in);
 
 // Generate text (JSON) from a given FlatBuffer, and a given Parser
 // object that has been populated with the corresponding schema.
@@ -1152,9 +1251,10 @@ extern std::string RustMakeRule(const Parser &parser, const std::string &path,
 
 // Generate a make rule for generated Java or C# files.
 // See code_generators.cpp.
-extern std::string JavaCSharpMakeRule(const Parser &parser,
-                                      const std::string &path,
-                                      const std::string &file_name);
+extern std::string CSharpMakeRule(const Parser &parser, const std::string &path,
+                                  const std::string &file_name);
+extern std::string JavaMakeRule(const Parser &parser, const std::string &path,
+                                const std::string &file_name);
 
 // Generate a make rule for the generated text (JSON) files.
 // See idl_gen_text.cpp.
@@ -1193,6 +1293,9 @@ extern bool GenerateSwiftGRPC(const Parser &parser, const std::string &path,
 
 extern bool GenerateTSGRPC(const Parser &parser, const std::string &path,
                            const std::string &file_name);
+
+extern bool GenerateRustModuleRootFile(const Parser &parser,
+                                       const std::string &path);
 }  // namespace flatbuffers
 
 #endif  // FLATBUFFERS_IDL_H_

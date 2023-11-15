@@ -41,6 +41,7 @@ proto_library(
         "//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:field_mask_proto",
         "@com_google_protobuf//:struct_proto",
         "@com_google_protobuf//:timestamp_proto",
@@ -80,13 +81,13 @@ java_grpc_library(
 
 java_gapic_library(
     name = "automl_java_gapic",
-    src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
-    package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
+    srcs = [":automl_proto_with_info"],
+    grpc_service_config = "automl_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":automl_java_grpc",
     ],
+    transport = "grpc+rest",
     deps = [
         ":automl_java_proto",
     ],
@@ -95,7 +96,9 @@ java_gapic_library(
 java_gapic_test(
     name = "automl_java_gapic_test_suite",
     test_classes = [
+        "com.google.cloud.automl.v1.AutoMlClientHttpJsonTest",
         "com.google.cloud.automl.v1.AutoMlClientTest",
+        "com.google.cloud.automl.v1.PredictionServiceClientHttpJsonTest",
         "com.google.cloud.automl.v1.PredictionServiceClientTest",
     ],
     runtime_deps = [":automl_java_gapic_test"],
@@ -104,6 +107,8 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-automl-v1-java",
+    include_samples = True,
+    transport = "grpc+rest",
     deps = [
         ":automl_java_gapic",
         ":automl_java_grpc",
@@ -137,16 +142,17 @@ go_proto_library(
 
 go_gapic_library(
     name = "automl_go_gapic",
-    src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
-    importpath = "cloud.google.com/go/automl/apiv1",
-    package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
+    srcs = [":automl_proto_with_info"],
+    grpc_service_config = "automl_grpc_service_config.json",
+    importpath = "cloud.google.com/go/automl/apiv1;automl",
+    rest_numeric_enums = True,
+    service_yaml = "automl_v1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":automl_go_proto",
-        "//google/longrunning:longrunning_go_gapic",
         "//google/longrunning:longrunning_go_proto",
-        "@com_google_cloud_go//longrunning:go_default_library",
+        "@com_google_cloud_go_longrunning//:go_default_library",
+        "@com_google_cloud_go_longrunning//autogen:go_default_library",
         "@io_bazel_rules_go//proto/wkt:any_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
         "@io_bazel_rules_go//proto/wkt:struct_go_proto",
@@ -165,7 +171,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-automl-v1-go",
     deps = [
         ":automl_go_gapic",
-        ":automl_go_gapic_srcjar-smoke-test.srcjar",
         ":automl_go_gapic_srcjar-test.srcjar",
         ":automl_go_proto",
     ],
@@ -176,53 +181,27 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "automl_moved_proto",
-    srcs = [":automl_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-        "//google/longrunning:operations_proto",
-        "//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:struct_proto",
-        "@com_google_protobuf//:timestamp_proto",
-    ],
-)
-
-py_proto_library(
-    name = "automl_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":automl_moved_proto"],
-)
-
-py_grpc_library(
-    name = "automl_py_grpc",
-    srcs = [":automl_moved_proto"],
-    deps = [":automl_py_proto"],
+    "py_test",
 )
 
 py_gapic_library(
     name = "automl_py_gapic",
-    src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
-    package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
-    deps = [
-        ":automl_py_grpc",
-        ":automl_py_proto",
+    srcs = [":automl_proto"],
+    grpc_service_config = "automl_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc",
+)
+
+py_test(
+    name = "automl_py_gapic_test",
+    srcs = [
+        "automl_py_gapic_pytest.py",
+        "automl_py_gapic_test.py",
     ],
+    legacy_create_init = False,
+    deps = [":automl_py_gapic"],
 )
 
 # Open Source Packages
@@ -230,8 +209,6 @@ py_gapic_assembly_pkg(
     name = "automl-v1-py",
     deps = [
         ":automl_py_gapic",
-        ":automl_py_grpc",
-        ":automl_py_proto",
     ],
 )
 
@@ -259,10 +236,11 @@ php_grpc_library(
 
 php_gapic_library(
     name = "automl_php_gapic",
-    src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
-    package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
+    srcs = [":automl_proto_with_info"],
+    grpc_service_config = "automl_grpc_service_config.json",
+    rest_numeric_enums = True,
+    service_yaml = "automl_v1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":automl_php_grpc",
         ":automl_php_proto",
@@ -290,10 +268,15 @@ load(
 
 nodejs_gapic_library(
     name = "automl_nodejs_gapic",
+    package_name = "@google-cloud/automl",
     src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "automl_grpc_service_config.json",
+    main_service = "automl",
     package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
+    rest_numeric_enums = True,
+    service_yaml = "automl_v1.yaml",
+    transport = "grpc+rest",
     deps = [],
 )
 
@@ -310,8 +293,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -327,12 +310,23 @@ ruby_grpc_library(
     deps = [":automl_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "automl_ruby_gapic",
-    src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
-    package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
+    srcs = [":automl_proto_with_info"],
+    extra_protoc_parameters = [
+        "ruby-cloud-gem-name=google-cloud-automl-v1",
+        "ruby-cloud-env-prefix=AUTOML",
+        "ruby-cloud-path-override=auto_ml=automl",
+        "ruby-cloud-namespace-override=AutoMl=AutoML;Automl=AutoML",
+        "ruby-cloud-yard-strict=false",
+        "ruby-cloud-product-url=https://cloud.google.com/automl",
+        "ruby-cloud-api-id=automl.googleapis.com",
+        "ruby-cloud-api-shortname=automl",
+    ],
+    grpc_service_config = "automl_grpc_service_config.json",
+    rest_numeric_enums = True,
+    ruby_cloud_description = "AutoML makes the power of machine learning available to you even if you have limited knowledge of machine learning. You can use AutoML to build on Google's machine learning capabilities to create your own custom machine learning models that are tailored to your business needs, and then integrate those models into your applications and web sites.",
+    ruby_cloud_title = "Cloud AutoML V1",
     deps = [
         ":automl_ruby_grpc",
         ":automl_ruby_proto",
@@ -373,10 +367,11 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "automl_csharp_gapic",
-    src = ":automl_proto_with_info",
-    gapic_yaml = "automl_gapic.yaml",
-    package = "google.cloud.automl.v1",
-    service_yaml = "//google/cloud/automl:automl_v1.yaml",
+    srcs = [":automl_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "automl_grpc_service_config.json",
+    rest_numeric_enums = True,
+    service_yaml = "automl_v1.yaml",
     deps = [
         ":automl_csharp_grpc",
         ":automl_csharp_proto",
@@ -396,4 +391,20 @@ csharp_gapic_assembly_pkg(
 ##############################################################################
 # C++
 ##############################################################################
-# Put your C++ rules here
+load(
+    "@com_google_googleapis_imports//:imports.bzl",
+    "cc_grpc_library",
+    "cc_proto_library",
+)
+
+cc_proto_library(
+    name = "automl_cc_proto",
+    deps = [":automl_proto"],
+)
+
+cc_grpc_library(
+    name = "automl_cc_grpc",
+    srcs = [":automl_proto"],
+    grpc_only = True,
+    deps = [":automl_cc_proto"],
+)

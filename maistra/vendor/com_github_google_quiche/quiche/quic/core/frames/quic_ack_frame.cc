@@ -42,11 +42,11 @@ std::ostream& operator<<(std::ostream& os, const QuicAckFrame& ack_frame) {
     os << p.first << " at " << p.second.ToDebuggingValue() << " ";
   }
   os << " ]";
-  os << ", ecn_counters_populated: " << ack_frame.ecn_counters_populated;
-  if (ack_frame.ecn_counters_populated) {
-    os << ", ect_0_count: " << ack_frame.ect_0_count
-       << ", ect_1_count: " << ack_frame.ect_1_count
-       << ", ecn_ce_count: " << ack_frame.ecn_ce_count;
+  os << ", ecn_counters_populated: " << ack_frame.ecn_counters.has_value();
+  if (ack_frame.ecn_counters.has_value()) {
+    os << ", ect_0_count: " << ack_frame.ecn_counters->ect0
+       << ", ect_1_count: " << ack_frame.ecn_counters->ect1
+       << ", ecn_ce_count: " << ack_frame.ecn_counters->ce;
   }
 
   os << " }\n";
@@ -102,9 +102,7 @@ void PacketNumberQueue::RemoveSmallestInterval() {
   packet_number_intervals_.PopFront();
 }
 
-void PacketNumberQueue::Clear() {
-  packet_number_intervals_.Clear();
-}
+void PacketNumberQueue::Clear() { packet_number_intervals_.Clear(); }
 
 bool PacketNumberQueue::Contains(QuicPacketNumber packet_number) const {
   if (!packet_number.IsInitialized()) {

@@ -12,48 +12,42 @@ namespace test {
 
 // static
 void QuicConfigPeer::SetReceivedInitialStreamFlowControlWindow(
-    QuicConfig* config,
-    uint32_t window_bytes) {
+    QuicConfig* config, uint32_t window_bytes) {
   config->initial_stream_flow_control_window_bytes_.SetReceivedValue(
       window_bytes);
 }
 
 // static
 void QuicConfigPeer::SetReceivedInitialMaxStreamDataBytesIncomingBidirectional(
-    QuicConfig* config,
-    uint32_t window_bytes) {
+    QuicConfig* config, uint32_t window_bytes) {
   config->initial_max_stream_data_bytes_incoming_bidirectional_
       .SetReceivedValue(window_bytes);
 }
 
 // static
 void QuicConfigPeer::SetReceivedInitialMaxStreamDataBytesOutgoingBidirectional(
-    QuicConfig* config,
-    uint32_t window_bytes) {
+    QuicConfig* config, uint32_t window_bytes) {
   config->initial_max_stream_data_bytes_outgoing_bidirectional_
       .SetReceivedValue(window_bytes);
 }
 
 // static
 void QuicConfigPeer::SetReceivedInitialMaxStreamDataBytesUnidirectional(
-    QuicConfig* config,
-    uint32_t window_bytes) {
+    QuicConfig* config, uint32_t window_bytes) {
   config->initial_max_stream_data_bytes_unidirectional_.SetReceivedValue(
       window_bytes);
 }
 
 // static
 void QuicConfigPeer::SetReceivedInitialSessionFlowControlWindow(
-    QuicConfig* config,
-    uint32_t window_bytes) {
+    QuicConfig* config, uint32_t window_bytes) {
   config->initial_session_flow_control_window_bytes_.SetReceivedValue(
       window_bytes);
 }
 
 // static
 void QuicConfigPeer::SetReceivedConnectionOptions(
-    QuicConfig* config,
-    const QuicTagVector& options) {
+    QuicConfig* config, const QuicTagVector& options) {
   config->connection_options_.SetReceivedValues(options);
 }
 
@@ -88,8 +82,7 @@ void QuicConfigPeer::SetConnectionOptionsToSend(QuicConfig* config,
 
 // static
 void QuicConfigPeer::SetReceivedStatelessResetToken(
-    QuicConfig* config,
-    const StatelessResetToken& token) {
+    QuicConfig* config, const StatelessResetToken& token) {
   config->stateless_reset_token_.SetReceivedValue(token);
 }
 
@@ -120,23 +113,43 @@ void QuicConfigPeer::SetReceivedOriginalConnectionId(
 
 // static
 void QuicConfigPeer::SetReceivedInitialSourceConnectionId(
-    QuicConfig* config,
-    const QuicConnectionId& initial_source_connection_id) {
+    QuicConfig* config, const QuicConnectionId& initial_source_connection_id) {
   config->received_initial_source_connection_id_ = initial_source_connection_id;
 }
 
 // static
 void QuicConfigPeer::SetReceivedRetrySourceConnectionId(
-    QuicConfig* config,
-    const QuicConnectionId& retry_source_connection_id) {
+    QuicConfig* config, const QuicConnectionId& retry_source_connection_id) {
   config->received_retry_source_connection_id_ = retry_source_connection_id;
 }
 
 // static
 void QuicConfigPeer::SetReceivedMaxDatagramFrameSize(
-    QuicConfig* config,
-    uint64_t max_datagram_frame_size) {
+    QuicConfig* config, uint64_t max_datagram_frame_size) {
   config->max_datagram_frame_size_.SetReceivedValue(max_datagram_frame_size);
+}
+
+//  static
+void QuicConfigPeer::SetReceivedAlternateServerAddress(
+    QuicConfig* config, const QuicSocketAddress& server_address) {
+  switch (server_address.host().address_family()) {
+    case quiche::IpAddressFamily::IP_V4:
+      config->alternate_server_address_ipv4_.SetReceivedValue(server_address);
+      break;
+    case quiche::IpAddressFamily::IP_V6:
+      config->alternate_server_address_ipv6_.SetReceivedValue(server_address);
+      break;
+    case quiche::IpAddressFamily::IP_UNSPEC:
+      break;
+  }
+}
+
+// static
+void QuicConfigPeer::SetPreferredAddressConnectionIdAndToken(
+    QuicConfig* config, QuicConnectionId connection_id,
+    const StatelessResetToken& token) {
+  config->preferred_address_connection_id_and_token_ =
+      std::make_pair(connection_id, token);
 }
 
 }  // namespace test

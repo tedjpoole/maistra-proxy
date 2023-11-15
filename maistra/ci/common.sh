@@ -69,8 +69,10 @@ function bazel_test() {
   2>&1 | grep --line-buffered -v -E "${OUTPUT_TO_IGNORE}"
 }
 
-# Fix path to the vendor deps
-sed -i "s|=/work/|=$(pwd)/|" maistra/bazelrc-vendor
+# Fix path to the vendor deps (only needed on bazel < 6.2.0)
+if ! printf "bazel 6.2.0\n%s" "$(bazel --version)" | sort -V -C; then
+  sed -i "s|=%workspace%/|=$(pwd)/|" maistra/bazelrc-vendor
+fi
 
 # Create symbolic links to existent executables in the builder
 mkdir -p "$WORKDIR/maistra/local/bin"

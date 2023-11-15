@@ -24,8 +24,7 @@ _TEST_TOOL_CONTENTS = """#!/bin/bash
 
 set -eu
 
-OUTPUT_FILE="$1"
-shift
+OUTPUT_FILE="$1" ; shift
 
 echo "XCODE_PATH_ENV=$DEVELOPER_DIR" > "$OUTPUT_FILE"
 echo "SDKROOT_PATH_ENV=$SDKROOT" >> "$OUTPUT_FILE"
@@ -157,7 +156,6 @@ def _apple_support_test_impl(ctx):
         actions = ctx.actions,
         xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig],
         apple_fragment = ctx.fragments.apple,
-        xcode_path_wrapper = ctx.executable._xcode_path_wrapper,
         outputs = [run_output_xcode_path_in_args],
         executable = test_tool,
         arguments = [
@@ -198,7 +196,6 @@ def _apple_support_test_impl(ctx):
         actions = ctx.actions,
         xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig],
         apple_fragment = ctx.fragments.apple,
-        xcode_path_wrapper = ctx.executable._xcode_path_wrapper,
         outputs = [run_output_xcode_path_in_file],
         executable = test_tool,
         arguments = [

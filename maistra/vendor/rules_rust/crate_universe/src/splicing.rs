@@ -1,40 +1,31 @@
 //! This module is responsible for finding a Cargo workspace
 
 pub(crate) mod cargo_config;
+mod crate_index_lookup;
 mod splicer;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use cargo_toml::Manifest;
-use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
 use crate::config::CrateId;
-use crate::metadata::LockGenerator;
-use crate::utils::starlark::Label;
+use crate::metadata::{Cargo, CargoUpdateRequest, LockGenerator};
+use crate::utils;
+use crate::utils::starlark::{Label, SelectList};
 
 use self::cargo_config::CargoConfig;
+use self::crate_index_lookup::CrateIndexLookup;
 pub use self::splicer::*;
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct ExtraManifestInfo {
-    // The path to a Cargo Manifest
-    pub manifest: PathBuf,
-
-    // The URL where the manifest's package can be downloaded
-    pub url: String,
-
-    // The Sha256 checksum of the downloaded package located at `url`.
-    pub sha256: String,
-}
 
 type DirectPackageManifest = BTreeMap<String, cargo_toml::DependencyDetail>;
 
+/// A collection of information used for splicing together a new Cargo manifest.
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct SplicingManifest {
@@ -65,33 +56,35 @@ impl SplicingManifest {
         Self::from_str(&content).context("Failed to load SplicingManifest")
     }
 
-    pub fn absoulutize(self, relative_to: &Path) -> Self {
+    pub fn resolve(self, workspace_dir: &Path, output_base: &Path) -> Self {
         let Self {
             manifests,
             cargo_config,
             ..
         } = self;
 
+        let workspace_dir_str = workspace_dir.to_string_lossy();
+        let output_base_str = output_base.to_string_lossy();
+
         // Ensure manifests all have absolute paths
         let manifests = manifests
             .into_iter()
             .map(|(path, label)| {
-                if !path.is_absolute() {
-                    let path = relative_to.join(path);
-                    (path, label)
-                } else {
-                    (path, label)
-                }
+                let resolved_path = path
+                    .to_string_lossy()
+                    .replace("${build_workspace_directory}", &workspace_dir_str)
+                    .replace("${output_base}", &output_base_str);
+                (PathBuf::from(resolved_path), label)
             })
             .collect();
 
         // Ensure the cargo config is located at an absolute path
         let cargo_config = cargo_config.map(|path| {
-            if !path.is_absolute() {
-                relative_to.join(path)
-            } else {
-                path
-            }
+            let resolved_path = path
+                .to_string_lossy()
+                .replace("${build_workspace_directory}", &workspace_dir_str)
+                .replace("${output_base}", &output_base_str);
+            PathBuf::from(resolved_path)
         });
 
         Self {
@@ -102,6 +95,7 @@ impl SplicingManifest {
     }
 }
 
+/// The result of fully resolving a [SplicingManifest] in preparation for splicing.
 #[derive(Debug, Serialize, Default)]
 pub struct SplicingMetadata {
     /// A set of all packages directly written to the rule
@@ -124,9 +118,16 @@ impl TryFrom<SplicingManifest> for SplicingMetadata {
             .manifests
             .into_iter()
             .map(|(path, label)| {
-                let manifest = cargo_toml::Manifest::from_path(&path)
+                // We read the content of a manifest file to buffer and use `from_slice` to
+                // parse it. The reason is that the `from_path` version will resolve indirect
+                // path dependencies in the workspace to absolute path, which causes the hash
+                // to be unstable. Not resolving implicit data is okay here because the
+                // workspace manifest is also included in the hash.
+                // See https://github.com/bazelbuild/rules_rust/issues/2016
+                let manifest_content = fs::read(&path)
                     .with_context(|| format!("Failed to load manifest '{}'", path.display()))?;
-
+                let manifest = cargo_toml::Manifest::from_slice(&manifest_content)
+                    .with_context(|| format!("Failed to parse manifest '{}'", path.display()))?;
                 Ok((label, manifest))
             })
             .collect::<Result<BTreeMap<Label, Manifest>>>()?;
@@ -147,32 +148,6 @@ impl TryFrom<SplicingManifest> for SplicingMetadata {
     }
 }
 
-/// A collection of information required for reproducible "extra worksspace members".
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ExtraManifestsManifest {
-    pub manifests: Vec<ExtraManifestInfo>,
-}
-
-impl FromStr for ExtraManifestsManifest {
-    type Err = serde_json::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s)
-    }
-}
-
-impl ExtraManifestsManifest {
-    pub fn try_from_path<T: AsRef<Path>>(path: T) -> Result<Self> {
-        let content = fs::read_to_string(path.as_ref())?;
-        Self::from_str(&content).context("Failed to load ExtraManifestsManifest")
-    }
-
-    pub fn absoulutize(self) -> Self {
-        self
-    }
-}
-
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct SourceInfo {
     /// A url where to a `.crate` file.
@@ -186,15 +161,19 @@ pub struct SourceInfo {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct WorkspaceMetadata {
     /// A mapping of crates to information about where their source can be downloaded
-    #[serde(serialize_with = "toml::ser::tables_last")]
     pub sources: BTreeMap<CrateId, SourceInfo>,
 
     /// The path from the root of a Bazel workspace to the root of the Cargo workspace
     pub workspace_prefix: Option<String>,
 
     /// Paths from the root of a Bazel workspace to a Cargo package
-    #[serde(serialize_with = "toml::ser::tables_last")]
     pub package_prefixes: BTreeMap<String, String>,
+
+    /// Feature set for each target triplet and crate.
+    ///
+    /// We store this here because it's computed during the splicing phase via
+    /// calls to "cargo tree" which need the full spliced workspace.
+    pub features: BTreeMap<CrateId, SelectList<String>>,
 }
 
 impl TryFrom<toml::Value> for WorkspaceMetadata {
@@ -227,30 +206,9 @@ impl TryFrom<serde_json::Value> for WorkspaceMetadata {
 impl WorkspaceMetadata {
     fn new(
         splicing_manifest: &SplicingManifest,
-        extra_manifests_manifest: &ExtraManifestsManifest,
-        injected_manifests: HashMap<&PathBuf, String>,
+        member_manifests: BTreeMap<&PathBuf, String>,
     ) -> Result<Self> {
-        let mut sources = BTreeMap::new();
-
-        for config in extra_manifests_manifest.manifests.iter() {
-            let package = match read_manifest(&config.manifest) {
-                Ok(manifest) => match manifest.package {
-                    Some(pkg) => pkg,
-                    None => continue,
-                },
-                Err(e) => return Err(e),
-            };
-
-            let id = CrateId::new(package.name, package.version);
-            let info = SourceInfo {
-                url: config.url.clone(),
-                sha256: config.sha256.clone(),
-            };
-
-            sources.insert(id, info);
-        }
-
-        let mut package_prefixes: BTreeMap<String, String> = injected_manifests
+        let mut package_prefixes: BTreeMap<String, String> = member_manifests
             .iter()
             .filter_map(|(original_manifest, cargo_pkg_name)| {
                 let label = match splicing_manifest.manifests.get(*original_manifest) {
@@ -285,17 +243,21 @@ impl WorkspaceMetadata {
             .collect();
 
         Ok(Self {
-            sources,
+            sources: BTreeMap::new(),
             workspace_prefix,
             package_prefixes,
+            features: BTreeMap::new(),
         })
     }
 
-    pub fn write_registry_urls(
+    pub fn write_registry_urls_and_feature_map(
+        cargo: &Cargo,
         lockfile: &cargo_lock::Lockfile,
-        manifest_path: &SplicedManifest,
+        features: BTreeMap<CrateId, SelectList<String>>,
+        input_manifest_path: &Path,
+        output_manifest_path: &Path,
     ) -> Result<()> {
-        let mut manifest = read_manifest(manifest_path.as_path_buf())?;
+        let mut manifest = read_manifest(input_manifest_path)?;
 
         let mut workspace_metaata = WorkspaceMetadata::try_from(
             manifest
@@ -308,7 +270,7 @@ impl WorkspaceMetadata {
                 .clone(),
         )?;
 
-        // Locate all packages soruced from a registry
+        // Locate all packages sourced from a registry
         let pkg_sources: Vec<&cargo_lock::Package> = lockfile
             .packages
             .iter()
@@ -325,8 +287,7 @@ impl WorkspaceMetadata {
         // Load the cargo config
         let cargo_config = {
             // Note that this path must match the one defined in `splicing::setup_cargo_config`
-            let config_path = manifest_path
-                .as_path_buf()
+            let config_path = input_manifest_path
                 .parent()
                 .unwrap()
                 .join(".cargo")
@@ -343,86 +304,84 @@ impl WorkspaceMetadata {
         let crate_indexes = index_urls
             .into_iter()
             .map(|url| {
-                let index = {
-                    // Ensure the correct registry is mapped based on the give Cargo config.
-                    let index_url = if let Some(config) = &cargo_config {
-                        if let Some(source) = config.get_source_from_url(&url) {
-                            if let Some(replace_with) = &source.replace_with {
-                                if let Some(replacement) = config.get_registry_index_url_by_name(replace_with) {
-                                    replacement
-                                } else {
-                                    bail!("Tried to replace registry {} with registry named {} but didn't have metadata about the replacement", url, replace_with);
-                                }
-                            } else {
-                                &url
-                            }
-                        } else {
-                            &url
-                        }
-                    } else {
-                        &url
+                // Ensure the correct registry is mapped based on the give Cargo config.
+                let index_url = if let Some(config) = &cargo_config {
+                    config.resolve_replacement_url(&url)?
+                } else {
+                    &url
+                };
+                let index = if cargo.use_sparse_registries_for_crates_io()?
+                    && index_url == utils::CRATES_IO_INDEX_URL
+                {
+                    CrateIndexLookup::Http(crates_index::SparseIndex::from_url(
+                        "sparse+https://index.crates.io/",
+                    )?)
+                } else if index_url.starts_with("sparse+https://") {
+                    CrateIndexLookup::Http(crates_index::SparseIndex::from_url(index_url)?)
+                } else {
+                    let index = {
+                        // Load the index for the current url
+                        let index =
+                            crates_index::Index::from_url(index_url).with_context(|| {
+                                format!("Failed to load index for url: {index_url}")
+                            })?;
+
+                        // Ensure each index has a valid index config
+                        index.index_config().with_context(|| {
+                            format!("`config.json` not found in index: {index_url}")
+                        })?;
+
+                        index
                     };
 
-                    // Load the index for the current url
-                    let index = crates_index::Index::from_url(index_url)
-                        .with_context(|| format!("Failed to load index for url: {}", index_url))?;
-
-                    // Ensure each index has a valid index config
-                    index.index_config().with_context(|| {
-                        format!("`config.json` not found in index: {}", index_url)
-                    })?;
-
-                    index
+                    CrateIndexLookup::Git(index)
                 };
-
                 Ok((url, index))
             })
-            .collect::<Result<BTreeMap<String, crates_index::Index>>>()
+            .collect::<Result<BTreeMap<String, _>>>()
             .context("Failed to locate crate indexes")?;
 
         // Get the download URL of each package based on it's registry url.
         let additional_sources = pkg_sources
             .iter()
-            .filter_map(|pkg| {
+            .map(|pkg| {
                 let source_id = pkg.source.as_ref().unwrap();
-                let index = &crate_indexes[&source_id.url().to_string()];
-                let index_config = index.index_config().unwrap();
-
-                index.crate_(pkg.name.as_str()).map(|crate_idx| {
-                    crate_idx
-                        .versions()
-                        .iter()
-                        .find(|v| v.version() == pkg.version.to_string())
-                        .and_then(|v| {
-                            v.download_url(&index_config).map(|url| {
-                                let crate_id =
-                                    CrateId::new(v.name().to_owned(), v.version().to_owned());
-                                let sha256 = pkg
-                                    .checksum
-                                    .as_ref()
-                                    .and_then(|sum| {
-                                        sum.as_sha256().map(|sum| sum.encode_hex::<String>())
-                                    })
-                                    .unwrap_or_else(|| v.checksum().encode_hex::<String>());
-                                let source_info = SourceInfo { url, sha256 };
-                                (crate_id, source_info)
-                            })
-                        })
+                let source_url = source_id.url().to_string();
+                let lookup = crate_indexes.get(&source_url).ok_or_else(|| {
+                    anyhow!(
+                        "Couldn't find crate_index data for SourceID {:?}",
+                        source_id
+                    )
+                })?;
+                lookup.get_source_info(pkg).map(|source_info| {
+                    (
+                        CrateId::new(pkg.name.as_str().to_owned(), pkg.version.to_string()),
+                        source_info,
+                    )
                 })
             })
-            .flatten();
+            .collect::<Result<Vec<_>>>()?;
 
-        workspace_metaata.sources.extend(additional_sources);
+        workspace_metaata
+            .sources
+            .extend(
+                additional_sources
+                    .into_iter()
+                    .filter_map(|(crate_id, source_info)| {
+                        source_info.map(|source_info| (crate_id, source_info))
+                    }),
+            );
+        workspace_metaata.features = features;
         workspace_metaata.inject_into(&mut manifest)?;
 
-        write_root_manifest(manifest_path.as_path_buf(), manifest)?;
+        write_root_manifest(output_manifest_path, manifest)?;
 
         Ok(())
     }
 
     fn inject_into(&self, manifest: &mut Manifest) -> Result<()> {
         let metadata_value = toml::Value::try_from(self)?;
-        let mut workspace = manifest.workspace.as_mut().unwrap();
+        let workspace = manifest.workspace.as_mut().unwrap();
 
         match &mut workspace.metadata {
             Some(data) => match data.as_table_mut() {
@@ -467,8 +426,9 @@ pub fn read_manifest(manifest: &Path) -> Result<Manifest> {
 pub fn generate_lockfile(
     manifest_path: &SplicedManifest,
     existing_lock: &Option<PathBuf>,
-    cargo_bin: &Path,
+    cargo_bin: Cargo,
     rustc_bin: &Path,
+    update_request: &Option<CargoUpdateRequest>,
 ) -> Result<cargo_lock::Lockfile> {
     let manifest_dir = manifest_path
         .as_path_buf()
@@ -483,8 +443,11 @@ pub fn generate_lockfile(
     }
 
     // Generate the new lockfile
-    let lockfile = LockGenerator::new(PathBuf::from(cargo_bin), PathBuf::from(rustc_bin))
-        .generate(manifest_path.as_path_buf(), existing_lock)?;
+    let lockfile = LockGenerator::new(cargo_bin, PathBuf::from(rustc_bin)).generate(
+        manifest_path.as_path_buf(),
+        existing_lock,
+        update_request,
+    )?;
 
     // Write the lockfile to disk
     if !root_lockfile_path.exists() {
@@ -492,4 +455,177 @@ pub fn generate_lockfile(
     }
 
     Ok(lockfile)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::path::PathBuf;
+
+    #[test]
+    fn deserialize_splicing_manifest() {
+        let runfiles = runfiles::Runfiles::create().unwrap();
+        let path = runfiles.rlocation(
+            "rules_rust/crate_universe/test_data/serialized_configs/splicing_manifest.json",
+        );
+
+        let content = std::fs::read_to_string(path).unwrap();
+
+        let manifest: SplicingManifest = serde_json::from_str(&content).unwrap();
+
+        // Check manifests
+        assert_eq!(
+            manifest.manifests,
+            BTreeMap::from([
+                (
+                    PathBuf::from("${build_workspace_directory}/submod/Cargo.toml"),
+                    Label::from_str("//submod:Cargo.toml").unwrap()
+                ),
+                (
+                    PathBuf::from("${output_base}/external_crate/Cargo.toml"),
+                    Label::from_str("@external_crate//:Cargo.toml").unwrap()
+                ),
+                (
+                    PathBuf::from("/tmp/abs/path/workspace/Cargo.toml"),
+                    Label::from_str("//:Cargo.toml").unwrap()
+                ),
+            ])
+        );
+
+        // Check splicing configs
+        assert_eq!(manifest.resolver_version, cargo_toml::Resolver::V2);
+
+        // Check packages
+        assert_eq!(manifest.direct_packages.len(), 4);
+        let package = manifest.direct_packages.get("rand").unwrap();
+        assert_eq!(
+            package,
+            &cargo_toml::DependencyDetail {
+                default_features: false,
+                features: vec!["small_rng".to_owned()],
+                version: Some("0.8.5".to_owned()),
+                ..Default::default()
+            }
+        );
+        let package = manifest.direct_packages.get("cfg-if").unwrap();
+        assert_eq!(
+            package,
+            &cargo_toml::DependencyDetail {
+                git: Some("https://github.com/rust-lang/cfg-if.git".to_owned()),
+                rev: Some("b9c2246a".to_owned()),
+                default_features: true,
+                ..Default::default()
+            }
+        );
+        let package = manifest.direct_packages.get("log").unwrap();
+        assert_eq!(
+            package,
+            &cargo_toml::DependencyDetail {
+                git: Some("https://github.com/rust-lang/log.git".to_owned()),
+                branch: Some("master".to_owned()),
+                default_features: true,
+                ..Default::default()
+            }
+        );
+        let package = manifest.direct_packages.get("cargo_toml").unwrap();
+        assert_eq!(
+            package,
+            &cargo_toml::DependencyDetail {
+                git: Some("https://gitlab.com/crates.rs/cargo_toml.git".to_owned()),
+                tag: Some("v0.15.2".to_owned()),
+                default_features: true,
+                ..Default::default()
+            }
+        );
+
+        // Check cargo config
+        assert_eq!(
+            manifest.cargo_config,
+            Some(PathBuf::from("/tmp/abs/path/workspace/.cargo/config.toml"))
+        );
+    }
+
+    #[test]
+    fn splicing_manifest_resolve() {
+        let runfiles = runfiles::Runfiles::create().unwrap();
+        let path = runfiles.rlocation(
+            "rules_rust/crate_universe/test_data/serialized_configs/splicing_manifest.json",
+        );
+
+        let content = std::fs::read_to_string(path).unwrap();
+
+        let mut manifest: SplicingManifest = serde_json::from_str(&content).unwrap();
+        manifest.cargo_config = Some(PathBuf::from(
+            "${build_workspace_directory}/.cargo/config.toml",
+        ));
+        manifest = manifest.resolve(
+            &PathBuf::from("/tmp/abs/path/workspace"),
+            &PathBuf::from("/tmp/output_base"),
+        );
+
+        // Check manifests
+        assert_eq!(
+            manifest.manifests,
+            BTreeMap::from([
+                (
+                    PathBuf::from("/tmp/abs/path/workspace/submod/Cargo.toml"),
+                    Label::from_str("//submod:Cargo.toml").unwrap()
+                ),
+                (
+                    PathBuf::from("/tmp/output_base/external_crate/Cargo.toml"),
+                    Label::from_str("@external_crate//:Cargo.toml").unwrap()
+                ),
+                (
+                    PathBuf::from("/tmp/abs/path/workspace/Cargo.toml"),
+                    Label::from_str("//:Cargo.toml").unwrap()
+                ),
+            ])
+        );
+
+        // Check cargo config
+        assert_eq!(
+            manifest.cargo_config.unwrap(),
+            PathBuf::from("/tmp/abs/path/workspace/.cargo/config.toml"),
+        )
+    }
+
+    #[test]
+    fn splicing_metadata_workspace_path() {
+        let runfiles = runfiles::Runfiles::create().unwrap();
+        let workspace_manifest_path = runfiles
+            .rlocation("rules_rust/crate_universe/test_data/metadata/workspace_path/Cargo.toml");
+        let workspace_path = workspace_manifest_path.parent().unwrap().to_path_buf();
+        let child_a_manifest_path = runfiles.rlocation(
+            "rules_rust/crate_universe/test_data/metadata/workspace_path/child_a/Cargo.toml",
+        );
+        let child_b_manifest_path = runfiles.rlocation(
+            "rules_rust/crate_universe/test_data/metadata/workspace_path/child_b/Cargo.toml",
+        );
+        let manifest = SplicingManifest {
+            direct_packages: BTreeMap::new(),
+            manifests: BTreeMap::from([
+                (
+                    workspace_manifest_path,
+                    Label::from_str("//:Cargo.toml").unwrap(),
+                ),
+                (
+                    child_a_manifest_path,
+                    Label::from_str("//child_a:Cargo.toml").unwrap(),
+                ),
+                (
+                    child_b_manifest_path,
+                    Label::from_str("//child_b:Cargo.toml").unwrap(),
+                ),
+            ]),
+            cargo_config: None,
+            resolver_version: cargo_toml::Resolver::V2,
+        };
+        let metadata = SplicingMetadata::try_from(manifest).unwrap();
+        let metadata = serde_json::to_string(&metadata).unwrap();
+        assert!(
+            !metadata.contains(workspace_path.to_str().unwrap()),
+            "serialized metadata should not contain absolute path"
+        );
+    }
 }

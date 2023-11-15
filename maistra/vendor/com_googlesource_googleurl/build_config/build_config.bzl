@@ -7,6 +7,7 @@ _default_copts = select({
     "//conditions:default": [
         "-std=c++17",
         "-fno-strict-aliasing",
+        "-Wno-unused-parameter",
     ],
 })
 

@@ -67,6 +67,7 @@ class WheelMaker(object):
             + ".dist-info/"
         )
         self._zipfile = None
+        # Entries for the RECORD file as (filename, hash, size) tuples.
         self._record = []
 
     def __enter__(self):
@@ -119,6 +120,9 @@ class WheelMaker(object):
         def arcname_from(name):
             # Always use unix path separators.
             normalized_arcname = name.replace(os.path.sep, "/")
+            # Don't manipulate names filenames in the .distinfo directory.
+            if normalized_arcname.startswith(self._distinfo_dir):
+                return normalized_arcname
             for prefix in self._strip_path_prefixes:
                 if normalized_arcname.startswith(prefix):
                     return normalized_arcname[len(prefix) :]
@@ -142,7 +146,7 @@ class WheelMaker(object):
         size = 0
         with open(real_filename, "rb") as f:
             while True:
-                block = f.read(2 ** 20)
+                block = f.read(2**20)
                 if not block:
                     break
                 hash.update(block)
@@ -163,39 +167,12 @@ Root-Is-Purelib: {}
             wheel_contents += "Tag: %s\n" % tag
         self.add_string(self.distinfo_path("WHEEL"), wheel_contents)
 
-    def add_metadata(
-        self,
-        extra_headers,
-        description,
-        classifiers,
-        python_requires,
-        requires,
-        extra_requires,
-    ):
+    def add_metadata(self, metadata, description, version):
         """Write METADATA file to the distribution."""
         # https://www.python.org/dev/peps/pep-0566/
         # https://packaging.python.org/specifications/core-metadata/
-        metadata = []
-        metadata.append("Metadata-Version: 2.1")
-        metadata.append("Name: %s" % self._name)
-        metadata.append("Version: %s" % self._version)
-        metadata.extend(extra_headers)
-        for classifier in classifiers:
-            metadata.append("Classifier: %s" % classifier)
-        if python_requires:
-            metadata.append("Requires-Python: %s" % python_requires)
-        for requirement in requires:
-            metadata.append("Requires-Dist: %s" % requirement)
-
-        extra_requires = sorted(extra_requires.items())
-        for option, option_requires in extra_requires:
-            metadata.append("Provides-Extra: %s" % option)
-            for requirement in option_requires:
-                metadata.append(
-                    "Requires-Dist: %s; extra == '%s'" % (requirement, option)
-                )
-
-        metadata = "\n".join(metadata) + "\n\n"
+        metadata += "Version: " + version
+        metadata += "\n\n"
         # setuptools seems to insert UNKNOWN as description when none is
         # provided.
         metadata += description if description else "UNKNOWN"
@@ -210,7 +187,7 @@ Root-Is-Purelib: {}
         contents = b""
         for filename, digest, size in entries:
             if sys.version_info[0] > 2 and isinstance(filename, str):
-                filename = filename.encode("utf-8", "surrogateescape")
+                filename = filename.lstrip("/").encode("utf-8", "surrogateescape")
             contents += b"%s,%s,%s\n" % (filename, digest, size)
         self.add_string(record_path, contents)
 
@@ -299,25 +276,15 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=[],
         help="Path prefix to be stripped from input package files' path. "
-        "Can be supplied multiple times. "
-        "Evaluated in order.",
+        "Can be supplied multiple times. Evaluated in order.",
     )
 
     wheel_group = parser.add_argument_group("Wheel metadata")
     wheel_group.add_argument(
-        "--header",
-        action="append",
-        help="Additional headers to be embedded in the package metadata. "
-        "Can be supplied multiple times.",
-    )
-    wheel_group.add_argument(
-        "--classifier",
-        action="append",
-        help="Classifiers to embed in package metadata. "
-        "Can be supplied multiple times",
-    )
-    wheel_group.add_argument(
-        "--python_requires", help="Version of python that the wheel will work with"
+        "--metadata_file",
+        type=Path,
+        help="Contents of the METADATA file (before appending contents of "
+        "--description_file)",
     )
     wheel_group.add_argument(
         "--description_file", help="Path to the file with package description"
@@ -338,22 +305,14 @@ def parse_args() -> argparse.Namespace:
     contents_group.add_argument(
         "--input_file_list",
         action="append",
-        help="A file that has all the input files defined as a list to avoid the long command",
+        help="A file that has all the input files defined as a list to avoid "
+        "the long command",
     )
-
-    requirements_group = parser.add_argument_group("Package requirements")
-    requirements_group.add_argument(
-        "--requires",
-        type=str,
+    contents_group.add_argument(
+        "--extra_distinfo_file",
         action="append",
-        help="List of package requirements. Can be supplied multiple times.",
-    )
-    requirements_group.add_argument(
-        "--extra_requires",
-        type=str,
-        action="append",
-        help="List of optional requirements in a 'requirement;option name'. "
-        "Can be supplied multiple times.",
+        help="'filename;real_path' pairs listing extra files to include in"
+        "dist-info directory. Can be supplied multiple times.",
     )
 
     build_group = parser.add_argument_group("Building requirements")
@@ -378,6 +337,11 @@ def main() -> None:
         input_files = [i.split(";") for i in arguments.input_file]
     else:
         input_files = []
+
+    if arguments.extra_distinfo_file:
+        extra_distinfo_file = [i.split(";") for i in arguments.extra_distinfo_file]
+    else:
+        extra_distinfo_file = []
 
     if arguments.input_file_list:
         for input_file in arguments.input_file_list:
@@ -426,29 +390,24 @@ def main() -> None:
                 ) as description_file:
                     description = description_file.read()
 
-        extra_requires = collections.defaultdict(list)
-        if arguments.extra_requires:
-            for extra in arguments.extra_requires:
-                req, option = extra.rsplit(";", 1)
-                extra_requires[option].append(req)
-        classifiers = arguments.classifier or []
-        python_requires = arguments.python_requires or ""
-        requires = arguments.requires or []
-        extra_headers = arguments.header or []
+        metadata = None
+        if sys.version_info[0] == 2:
+            with open(arguments.metadata_file, "rt") as metadata_file:
+                metadata = metadata_file.read()
+        else:
+            with open(arguments.metadata_file, "rt", encoding="utf-8") as metadata_file:
+                metadata = metadata_file.read()
 
-        maker.add_metadata(
-            extra_headers=extra_headers,
-            description=description,
-            classifiers=classifiers,
-            python_requires=python_requires,
-            requires=requires,
-            extra_requires=extra_requires,
-        )
+        maker.add_metadata(metadata=metadata, description=description, version=version)
 
         if arguments.entry_points_file:
             maker.add_file(
                 maker.distinfo_path("entry_points.txt"), arguments.entry_points_file
             )
+
+        # Sort the files for reproducible order in the archive.
+        for filename, real_path in sorted(extra_distinfo_file):
+            maker.add_file(maker.distinfo_path(filename), real_path)
 
         maker.add_recordfile()
 

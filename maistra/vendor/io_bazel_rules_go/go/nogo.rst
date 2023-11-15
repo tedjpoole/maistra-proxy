@@ -195,6 +195,17 @@ contain the following key-value pairs:
 | in both ``only_files`` and ``exclude_files``, the analyzer will not emit diagnostics for that    |
 | file.                                                                                            |
 +----------------------------+---------------------------------------------------------------------+
+| ``"analyzer_flags"``       | :type:`dictionary, string to string`                                |
++----------------------------+---------------------------------------------------------------------+
+| Passes on a set of flags as defined by the Go ``flag`` package to the analyzer via the           |
+| ``analysis.Analyzer.Flags`` field. Its keys are the flag names *without* a ``-`` prefix, and its |
+| values are the flag values. nogo will exit with an error upon receiving flags not recognized by  |
+| the analyzer or upon receiving ill-formatted flag values as defined by the corresponding         |
+| ``flag.Value`` specified by the analyzer.                                                        |
++----------------------------+---------------------------------------------------------------------+
+
+``nogo`` also supports a special key to specify the same config for all analyzers, even if they are
+not explicitly specified called ``_base``. See below for an example of its usage.
 
 Example
 ^^^^^^^
@@ -202,10 +213,18 @@ Example
 The following configuration file configures the analyzers named ``importunsafe``
 and ``unsafedom``. Since the ``loopclosure`` analyzer is not explicitly
 configured, it will emit diagnostics for all Go files built by Bazel.
+``unsafedom`` will receive a flag equivalent to ``-block-unescaped-html=false``
+on a command line driver.
 
 .. code:: json
 
     {
+      "_base": {
+        "description": "Base config that all subsequent analyzers, even unspecified will inherit.",
+        "exclude_files": {
+          "third_party/": "exclude all third_party code for all analyzers"
+        }
+      },
       "importunsafe": {
         "exclude_files": {
           "src/foo\\.go": "manually verified that behavior is working-as-intended",
@@ -218,7 +237,10 @@ configured, it will emit diagnostics for all Go files built by Bazel.
         },
         "exclude_files": {
           "src/(third_party|vendor)/.*": "enforce DOM safety requirements only on first-party code"
-        }
+        },
+        "analyzer_flags": {
+            "block-unescaped-html": "false",
+        },
       }
     }
 

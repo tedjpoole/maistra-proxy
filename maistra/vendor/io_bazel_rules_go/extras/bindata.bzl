@@ -15,11 +15,16 @@
 """bindata.bzl provides the bindata rule for embedding data in .go files"""
 
 load(
-    "@io_bazel_rules_go//go:def.bzl",
+    "//go:def.bzl",
     "go_context",
+)
+load(
+    "//go/private:go_toolchain.bzl",
+    "GO_TOOLCHAIN",
 )
 
 def _bindata_impl(ctx):
+    print("Embedding is now better handled by using rules_go's built-in embedding functionality (https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/rules.md#go_library-embedsrcs). The `bindata` rule is deprecated and will be removed in rules_go version 0.39.")
     go = go_context(ctx)
     out = go.declare_file(go, ext = ".go")
     arguments = ctx.actions.args()
@@ -71,12 +76,12 @@ bindata = rule(
         "extra_args": attr.string_list(),
         "_bindata": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             default = "@com_github_kevinburke_go_bindata//go-bindata:go-bindata",
         ),
         "_go_context_data": attr.label(
             default = "//:go_context_data",
         ),
     },
-    toolchains = ["@io_bazel_rules_go//go:toolchain"],
+    toolchains = [GO_TOOLCHAIN],
 )

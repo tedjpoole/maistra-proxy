@@ -67,7 +67,7 @@ def _apple_binary_impl(ctx):
         for framework in ctx.attr.weak_sdk_frameworks
     ])
 
-    link_result = linking_support.register_linking_action(
+    link_result = linking_support.register_binary_linking_action(
         ctx,
         bundle_loader = bundle_loader,
         extra_linkopts = extra_linkopts,
@@ -98,6 +98,7 @@ def _apple_binary_impl(ctx):
     if binary_type == "executable":
         providers.append(
             apple_common.new_executable_binary_provider(
+                cc_info = link_result.cc_info,
                 objc = link_result.objc,
                 binary = binary_artifact,
             ),
@@ -127,7 +128,7 @@ The type of binary that this target should build. Option are:
         "bundle_loader": attr.label(
             doc = """
 The target representing the executable that will be loading this bundle.
-Undefined symbols from the bundle are checked against this execuable during
+Undefined symbols from the bundle are checked against this executable during
 linking as if it were one of the dynamic libraries the bundle was linked with.
 """,
             providers = [apple_common.AppleExecutableBinary],

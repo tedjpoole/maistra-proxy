@@ -1,6 +1,7 @@
 #include "quiche/http2/adapter/nghttp2_util.h"
 
 #include <cstdint>
+#include <memory>
 
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -86,8 +87,7 @@ std::vector<nghttp2_nv> GetNghttp2Nvs(absl::Span<const Header> headers) {
 }
 
 std::vector<nghttp2_nv> GetResponseNghttp2Nvs(
-    const spdy::Http2HeaderBlock& headers,
-    absl::string_view response_code) {
+    const spdy::Http2HeaderBlock& headers, absl::string_view response_code) {
   // Allocate enough for all headers and also the :status pseudoheader.
   const int num_headers = headers.size();
   std::vector<nghttp2_nv> nghttp2_nvs;
@@ -162,8 +162,7 @@ InvalidFrameError ToInvalidFrameError(int error) {
 class Nghttp2DataFrameSource : public DataFrameSource {
  public:
   Nghttp2DataFrameSource(nghttp2_data_provider provider,
-                         nghttp2_send_data_callback send_data,
-                         void* user_data)
+                         nghttp2_send_data_callback send_data, void* user_data)
       : provider_(std::move(provider)),
         send_data_(std::move(send_data)),
         user_data_(user_data) {}
@@ -215,10 +214,9 @@ class Nghttp2DataFrameSource : public DataFrameSource {
 };
 
 std::unique_ptr<DataFrameSource> MakeZeroCopyDataFrameSource(
-    nghttp2_data_provider provider,
-    void* user_data,
+    nghttp2_data_provider provider, void* user_data,
     nghttp2_send_data_callback send_data) {
-  return absl::make_unique<Nghttp2DataFrameSource>(
+  return std::make_unique<Nghttp2DataFrameSource>(
       std::move(provider), std::move(send_data), user_data);
 }
 
@@ -227,7 +225,7 @@ absl::string_view ErrorString(uint32_t error_code) {
 }
 
 size_t PaddingLength(uint8_t flags, size_t padlen) {
-  return (flags & 0x8 ? 1 : 0) + padlen;
+  return (flags & PADDED_FLAG ? 1 : 0) + padlen;
 }
 
 struct NvFormatter {
@@ -270,7 +268,8 @@ void LogBeforeSend(const nghttp2_frame& frame) {
       break;
     case FrameType::SETTINGS:
       HTTP2_FRAME_SEND_LOG << "Sending SETTINGS with " << frame.settings.niv
-                           << " entries, is_ack: " << (frame.hd.flags & 0x01);
+                           << " entries, is_ack: "
+                           << (frame.hd.flags & ACK_FLAG);
       break;
     case FrameType::PUSH_PROMISE:
       HTTP2_FRAME_SEND_LOG << "Sending PUSH_PROMISE";
@@ -280,7 +279,7 @@ void LogBeforeSend(const nghttp2_frame& frame) {
       std::memcpy(&ping_id, frame.ping.opaque_data, sizeof(Http2PingId));
       HTTP2_FRAME_SEND_LOG << "Sending PING with unique_id "
                            << quiche::QuicheEndian::NetToHost64(ping_id)
-                           << ", is_ack: " << (frame.hd.flags & 0x01);
+                           << ", is_ack: " << (frame.hd.flags & ACK_FLAG);
       break;
     }
     case FrameType::GOAWAY:

@@ -21,7 +21,7 @@ namespace adapter {
 // invokes corresponding callbacks on its passed-in Http2VisitorInterface.
 // Http2Adapter is a base class shared between client-side and server-side
 // implementations.
-class QUICHE_EXPORT_PRIVATE Http2Adapter {
+class QUICHE_EXPORT Http2Adapter {
  public:
   Http2Adapter(const Http2Adapter&) = delete;
   Http2Adapter& operator=(const Http2Adapter&) = delete;
@@ -44,8 +44,7 @@ class QUICHE_EXPORT_PRIVATE Http2Adapter {
   // Submits a PRIORITY frame for the given stream.
   virtual void SubmitPriorityForStream(Http2StreamId stream_id,
                                        Http2StreamId parent_stream_id,
-                                       int weight,
-                                       bool exclusive) = 0;
+                                       int weight, bool exclusive) = 0;
 
   // Submits a PING on the connection.
   virtual void SubmitPing(Http2PingId ping_id) = 0;

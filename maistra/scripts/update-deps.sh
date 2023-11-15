@@ -27,7 +27,7 @@ function init(){
   BAZELRC="${ROOT_DIR}/maistra/bazelrc-vendor"
 
   rm -rf "${OUTPUT_BASE}" &&  mkdir -p "${OUTPUT_BASE}"
-  rm -rf "${VENDOR_DIR}" &&  mkdir -p "${VENDOR_DIR}"
+  chmod -R +w "${VENDOR_DIR}" && rm -rf "${VENDOR_DIR}" &&  mkdir -p "${VENDOR_DIR}"
   : > "${BAZELRC}"
 
 
@@ -82,7 +82,7 @@ function copy_files() {
         cp_flags="-r"
       fi
       cp "${cp_flags}" "${f}" "${VENDOR_DIR}" || echo "Copy of ${f} failed. Ignoring..."
-      echo "build --override_repository=${repo_name}=/work/maistra/vendor/${repo_name}" >> "${BAZELRC}"
+      echo "build --override_repository=${repo_name}=%workspace%/maistra/vendor/${repo_name}" >> "${BAZELRC}"
     fi
   done 
 
@@ -93,6 +93,7 @@ function copy_files() {
   mv node_modules/acorn maistra/vendor/acorn
   /bin/rm -rf node_modules
 
+  chmod -R +w "${VENDOR_DIR}"
   find "${VENDOR_DIR}" -name .git -type d -print0 | xargs -0 -r rm -rf
   find "${VENDOR_DIR}" -name .gitignore -type f -delete
   find "${VENDOR_DIR}" -name __pycache__ -type d -print0 | xargs -0 -r rm -rf

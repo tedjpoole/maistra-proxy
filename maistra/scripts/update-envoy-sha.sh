@@ -18,8 +18,11 @@ set -e
 set -u
 set -o pipefail
 
-ENVOY_ORG=envoyproxy
-ENVOY_REPO=envoy
+# These can be overridden from the calling environment to
+# explicitly force a particular org, repo and/or branch name.
+ENVOY_OPENSSL_ORG="${ENVOY_OPENSSL_ORG:-envoyproxy}"
+ENVOY_OPENSSL_REPO="${ENVOY_OPENSSL_REPO:-envoy-openssl}"
+ENVOY_OPENSSL_BRANCH="${ENVOY_OPENSSL_BRANCH:-}"
 
 
 function cleanup() {
@@ -32,30 +35,31 @@ function init() {
 }
 
 function get_envoy_sha() {
-  local proxy_branch
-  local envoy_branch
+  local maistra_proxy_branch
 
-  proxy_branch="${BRANCH:-$(git symbolic-ref --quiet --short HEAD)}"
+  if [[ -z "${ENVOY_OPENSSL_BRANCH}" ]]; then
+    maistra_proxy_branch="$(git symbolic-ref --quiet --short HEAD)"
 
-  # Prior to the maistra-2.5 branch, we used to assume the same branch name existed in the
-  # maistra/envoy repository. Starting from maistra-2.5 we use the upstream envoyproxy/envoy
-  # repository, which doesn't contain matching branch names. Therefore, we have to explicitly map
-  # from proxy's maistra-2.x branch name to upstream's corresponding release/v1.xx branch name.
+    # Prior to the maistra-2.5 branch, we used to assume the same branch name existed in the
+    # maistra/envoy repository. Starting from maistra-2.5 we use the upstream envoyproxy/envoy-openssl
+    # repository, which doesn't contain matching branch names. Therefore, we have to explicitly map
+    # from proxy's maistra-2.x branch name to upstream's corresponding release/v1.xx branch name.
 
-  case ${proxy_branch} in
-    maistra-2.5)
-      envoy_branch=release/v1.26
-    ;;
-    *)
-      echo "Unknown proxy branch ${proxy_branch}" 1>&2
-      exit 1
-    ;;
-  esac
+    case ${maistra_proxy_branch} in
+      maistra-2.5)
+        ENVOY_OPENSSL_BRANCH=release/v1.26
+      ;;
+      *)
+        echo "Unknown proxy branch ${maistra_proxy_branch}" 1>&2
+        exit 1
+      ;;
+    esac
+  fi
 
   pushd "${WORKDIR}" >/dev/null
-  git clone --depth=1 -b "${envoy_branch}" "https://github.com/${ENVOY_ORG}/${ENVOY_REPO}.git"
+  git clone --depth=1 -b "${ENVOY_OPENSSL_BRANCH}" "https://github.com/${ENVOY_OPENSSL_ORG}/${ENVOY_OPENSSL_REPO}.git"
 
-  pushd "${ENVOY_REPO}" >/dev/null
+  pushd "${ENVOY_OPENSSL_REPO}" >/dev/null
   SHA=$(git rev-parse HEAD)
   popd >/dev/null
 
@@ -64,7 +68,7 @@ function get_envoy_sha() {
 
 function get_envoy_sha_256() {
   pushd "${WORKDIR}" >/dev/null
-  curl -sfLO "https://github.com/${ENVOY_ORG}/${ENVOY_REPO}/archive/${SHA}.tar.gz"
+  curl -sfLO "https://github.com/${ENVOY_OPENSSL_ORG}/${ENVOY_OPENSSL_REPO}/archive/${SHA}.tar.gz"
   SHA256=$(sha256sum "${SHA}.tar.gz" | awk '{print $1}')
   popd >/dev/null
 }
@@ -79,10 +83,11 @@ function main() {
   get_envoy_sha_256
 
   sed -i "s|^# Commit time: .*|# Commit time: ${today}|" WORKSPACE
-  sed -i "s|^ENVOY_SHA = .*|ENVOY_SHA = \"${SHA}\"|" WORKSPACE
-  sed -i "s|^ENVOY_SHA256 = .*|ENVOY_SHA256 = \"${SHA256}\"|" WORKSPACE
-  sed -i "s|^ENVOY_ORG = .*|ENVOY_ORG = \"${ENVOY_ORG}\"|" WORKSPACE
-  sed -i "s|^ENVOY_REPO = .*|ENVOY_REPO = \"${ENVOY_REPO}\"|" WORKSPACE
+  sed -i "s|^ENVOY_OPENSSL_ORG = .*|ENVOY_OPENSSL_ORG = \"${ENVOY_OPENSSL_ORG}\"|" WORKSPACE
+  sed -i "s|^ENVOY_OPENSSL_REPO = .*|ENVOY_OPENSSL_REPO = \"${ENVOY_OPENSSL_REPO}\"|" WORKSPACE
+  sed -i "s|^ENVOY_OPENSSL_BRANCH = .*|ENVOY_OPENSSL_BRANCH = \"${ENVOY_OPENSSL_BRANCH}\"|" WORKSPACE
+  sed -i "s|^ENVOY_OPENSSL_COMMIT = .*|ENVOY_OPENSSL_COMMIT = \"${SHA}\"|" WORKSPACE
+  sed -i "s|^ENVOY_OPENSSL_SHA256 = .*|ENVOY_OPENSSL_SHA256 = \"${SHA256}\"|" WORKSPACE
 }
 
 main

@@ -6,6 +6,7 @@
 #define QUICHE_QUIC_QBONE_QBONE_PACKET_PROCESSOR_H_
 
 #include <netinet/icmp6.h>
+#include <netinet/in.h>
 #include <netinet/ip6.h>
 
 #include "absl/strings/string_view.h"
@@ -131,10 +132,8 @@ class QbonePacketProcessor {
   // |output| gets notified whenever the processor decides to send a packet, and
   // |stats| gets notified about any decisions that processor makes, without a
   // reference to which packet that decision was made about.
-  QbonePacketProcessor(QuicIpAddress self_ip,
-                       QuicIpAddress client_ip,
-                       size_t client_ip_subnet_length,
-                       OutputInterface* output,
+  QbonePacketProcessor(QuicIpAddress self_ip, QuicIpAddress client_ip,
+                       size_t client_ip_subnet_length, OutputInterface* output,
                        StatsInterface* stats);
   QbonePacketProcessor(const QbonePacketProcessor&) = delete;
   QbonePacketProcessor& operator=(const QbonePacketProcessor&) = delete;
@@ -165,8 +164,8 @@ class QbonePacketProcessor {
                                               char** transport_data,
                                               icmp6_hdr* icmp_header);
 
-  void SendIcmpResponse(icmp6_hdr* icmp_header,
-                        absl::string_view original_packet,
+  void SendIcmpResponse(in6_addr dst, icmp6_hdr* icmp_header,
+                        absl::string_view payload,
                         Direction original_direction);
 
   void SendTcpReset(absl::string_view original_packet,
@@ -187,13 +186,14 @@ class QbonePacketProcessor {
  private:
   // Performs basic sanity and permission checks on the packet, and decreases
   // the TTL.
-  ProcessingResult ProcessIPv6Header(std::string* packet,
-                                     Direction direction,
+  ProcessingResult ProcessIPv6Header(std::string* packet, Direction direction,
                                      uint8_t* transport_protocol,
                                      char** transport_data,
                                      icmp6_hdr* icmp_header);
 
   void SendResponse(Direction original_direction, absl::string_view packet);
+
+  in6_addr GetDestinationFromPacket(absl::string_view packet);
 };
 
 }  // namespace quic

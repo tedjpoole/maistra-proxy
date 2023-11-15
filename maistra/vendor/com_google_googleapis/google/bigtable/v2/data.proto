@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 syntax = "proto3";
 
@@ -23,6 +22,7 @@ option java_multiple_files = true;
 option java_outer_classname = "DataProto";
 option java_package = "com.google.bigtable.v2";
 option php_namespace = "Google\\Cloud\\Bigtable\\V2";
+option ruby_package = "Google::Cloud::Bigtable::V2";
 
 // Specifies the complete (requested) contents of a single row of a table.
 // Rows which exceed 256MiB in size cannot be read in full.
@@ -209,7 +209,7 @@ message ValueRange {
 // RowFilter.Chain and RowFilter.Interleave documentation.
 //
 // The total serialized size of a RowFilter message must not
-// exceed 4096 bytes, and RowFilters may not be nested within each other
+// exceed 20480 bytes, and RowFilters may not be nested within each other
 // (in Chains or Interleaves) to a depth of more than 20.
 message RowFilter {
   // A RowFilter which sends rows through several RowFilters in sequence.

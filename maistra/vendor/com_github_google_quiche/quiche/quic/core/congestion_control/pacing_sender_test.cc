@@ -18,7 +18,6 @@
 
 using testing::_;
 using testing::AtMost;
-using testing::IsEmpty;
 using testing::Return;
 using testing::StrictMock;
 
@@ -61,13 +60,13 @@ class PacingSenderTest : public QuicTest {
     EXPECT_CALL(*mock_sender_, BandwidthEstimate())
         .WillRepeatedly(Return(bandwidth));
     if (burst_size == 0) {
-      EXPECT_CALL(*mock_sender_, OnCongestionEvent(_, _, _, _, _));
+      EXPECT_CALL(*mock_sender_, OnCongestionEvent(_, _, _, _, _, _, _));
       LostPacketVector lost_packets;
       lost_packets.push_back(
           LostPacket(QuicPacketNumber(1), kMaxOutgoingPacketSize));
       AckedPacketVector empty;
       pacing_sender_->OnCongestionEvent(true, 1234, clock_.Now(), empty,
-                                        lost_packets);
+                                        lost_packets, 0, 0);
     } else if (burst_size != kInitialBurstPackets) {
       QUIC_LOG(FATAL) << "Unsupported burst_size " << burst_size
                       << " specificied, only 0 and " << kInitialBurstPackets
@@ -77,8 +76,7 @@ class PacingSenderTest : public QuicTest {
 
   void CheckPacketIsSentImmediately(HasRetransmittableData retransmittable_data,
                                     QuicByteCount prior_in_flight,
-                                    bool in_recovery,
-                                    QuicPacketCount cwnd) {
+                                    bool in_recovery, QuicPacketCount cwnd) {
     // In order for the packet to be sendable, the underlying sender must
     // permit it to be sent immediately.
     for (int i = 0; i < 2; ++i) {
@@ -128,11 +126,11 @@ class PacingSenderTest : public QuicTest {
 
   void UpdateRtt() {
     EXPECT_CALL(*mock_sender_,
-                OnCongestionEvent(true, kBytesInFlight, _, _, _));
+                OnCongestionEvent(true, kBytesInFlight, _, _, _, _, _));
     AckedPacketVector empty_acked;
     LostPacketVector empty_lost;
     pacing_sender_->OnCongestionEvent(true, kBytesInFlight, clock_.Now(),
-                                      empty_acked, empty_lost);
+                                      empty_acked, empty_lost, 0, 0);
   }
 
   void OnApplicationLimited() { pacing_sender_->OnApplicationLimited(); }
@@ -341,10 +339,10 @@ TEST_F(PacingSenderTest, NoBurstEnteringRecovery) {
   lost_packets.push_back(
       LostPacket(QuicPacketNumber(1), kMaxOutgoingPacketSize));
   AckedPacketVector empty_acked;
-  EXPECT_CALL(*mock_sender_,
-              OnCongestionEvent(true, kMaxOutgoingPacketSize, _, IsEmpty(), _));
+  EXPECT_CALL(*mock_sender_, OnCongestionEvent(true, kMaxOutgoingPacketSize, _,
+                                               testing::IsEmpty(), _, _, _));
   pacing_sender_->OnCongestionEvent(true, kMaxOutgoingPacketSize, clock_.Now(),
-                                    empty_acked, lost_packets);
+                                    empty_acked, lost_packets, 0, 0);
   // One packet is sent immediately, because of 1ms pacing granularity.
   CheckPacketIsSentImmediately();
   // Ensure packets are immediately paced.
@@ -403,8 +401,8 @@ TEST_F(PacingSenderTest, CwndLimited) {
 
 TEST_F(PacingSenderTest, LumpyPacingWithInitialBurstToken) {
   // Set lumpy size to be 3, and cwnd faction to 0.5
-  SetQuicFlag(FLAGS_quic_lumpy_pacing_size, 3);
-  SetQuicFlag(FLAGS_quic_lumpy_pacing_cwnd_fraction, 0.5f);
+  SetQuicFlag(quic_lumpy_pacing_size, 3);
+  SetQuicFlag(quic_lumpy_pacing_cwnd_fraction, 0.5f);
   // Configure pacing rate of 1 packet per 1 ms.
   InitPacingRate(
       10, QuicBandwidth::FromBytesAndTimeDelta(
@@ -460,8 +458,8 @@ TEST_F(PacingSenderTest, LumpyPacingWithInitialBurstToken) {
 
 TEST_F(PacingSenderTest, NoLumpyPacingForLowBandwidthFlows) {
   // Set lumpy size to be 3, and cwnd fraction to 0.5
-  SetQuicFlag(FLAGS_quic_lumpy_pacing_size, 3);
-  SetQuicFlag(FLAGS_quic_lumpy_pacing_cwnd_fraction, 0.5f);
+  SetQuicFlag(quic_lumpy_pacing_size, 3);
+  SetQuicFlag(quic_lumpy_pacing_cwnd_fraction, 0.5f);
 
   // Configure pacing rate of 1 packet per 100 ms.
   QuicTime::Delta inter_packet_delay = QuicTime::Delta::FromMilliseconds(100);
@@ -502,29 +500,19 @@ TEST_F(PacingSenderTest, NoBurstsForLumpyPacingWithAckAggregation) {
   CheckPacketIsSentImmediately(HAS_RETRANSMITTABLE_DATA,
                                10 * kMaxOutgoingPacketSize, false, 10);
 
-  if (GetQuicReloadableFlag(quic_fix_pacing_sender_bursts)) {
-    // The last sent packet made the connection CWND limited, so no lumpy tokens
-    // should be available.
-    EXPECT_EQ(0u, pacing_sender_->lumpy_tokens());
-    CheckPacketIsSentImmediately(HAS_RETRANSMITTABLE_DATA,
-                                 10 * kMaxOutgoingPacketSize, false, 10);
-    EXPECT_EQ(0u, pacing_sender_->lumpy_tokens());
-    CheckPacketIsDelayed(2 * inter_packet_delay);
-  } else {
-    EXPECT_EQ(1u, pacing_sender_->lumpy_tokens());
-    // Repeatedly send single packets to make the sender CWND limited and
-    // observe that there's no pacing without the fix.
-    for (int i = 0; i < 10; ++i) {
-      CheckPacketIsSentImmediately(HAS_RETRANSMITTABLE_DATA,
-                                   10 * kMaxOutgoingPacketSize, false, 10);
-    }
-  }
+  // The last sent packet made the connection CWND limited, so no lumpy tokens
+  // should be available.
+  EXPECT_EQ(0u, pacing_sender_->lumpy_tokens());
+  CheckPacketIsSentImmediately(HAS_RETRANSMITTABLE_DATA,
+                               10 * kMaxOutgoingPacketSize, false, 10);
+  EXPECT_EQ(0u, pacing_sender_->lumpy_tokens());
+  CheckPacketIsDelayed(2 * inter_packet_delay);
 }
 
 TEST_F(PacingSenderTest, IdealNextPacketSendTimeWithLumpyPacing) {
   // Set lumpy size to be 3, and cwnd faction to 0.5
-  SetQuicFlag(FLAGS_quic_lumpy_pacing_size, 3);
-  SetQuicFlag(FLAGS_quic_lumpy_pacing_cwnd_fraction, 0.5f);
+  SetQuicFlag(quic_lumpy_pacing_size, 3);
+  SetQuicFlag(quic_lumpy_pacing_cwnd_fraction, 0.5f);
 
   // Configure pacing rate of 1 packet per millisecond.
   QuicTime::Delta inter_packet_delay = QuicTime::Delta::FromMilliseconds(1);

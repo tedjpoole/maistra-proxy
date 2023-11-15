@@ -35,21 +35,17 @@ class QUIC_EXPORT_PRIVATE QboneServerSession
       public QbonePacketProcessor::StatsInterface {
  public:
   QboneServerSession(const quic::ParsedQuicVersionVector& supported_versions,
-                     QuicConnection* connection,
-                     Visitor* owner,
+                     QuicConnection* connection, Visitor* owner,
                      const QuicConfig& config,
                      const QuicCryptoServerConfig* quic_crypto_server_config,
                      QuicCompressedCertsCache* compressed_certs_cache,
-                     QbonePacketWriter* writer,
-                     QuicIpAddress self_ip,
-                     QuicIpAddress client_ip,
-                     size_t client_ip_subnet_length,
+                     QbonePacketWriter* writer, QuicIpAddress self_ip,
+                     QuicIpAddress client_ip, size_t client_ip_subnet_length,
                      QboneServerControlStream::Handler* handler);
   QboneServerSession(const QboneServerSession&) = delete;
   QboneServerSession& operator=(const QboneServerSession&) = delete;
   ~QboneServerSession() override;
 
-  void Initialize() override;
   // Override to create control stream at FORWARD_SECURE encryption level.
   void SetDefaultEncryptionLevel(quic::EncryptionLevel level) override;
 
@@ -77,7 +73,7 @@ class QUIC_EXPORT_PRIVATE QboneServerSession
   std::unique_ptr<QuicCryptoStream> CreateCryptoStream() override;
 
   // Instantiates QboneServerControlStream.
-  void CreateControlStream();
+  virtual void CreateControlStream();
 
   // Instantiates QboneServerControlStream from the pending stream and returns a
   // pointer to it.

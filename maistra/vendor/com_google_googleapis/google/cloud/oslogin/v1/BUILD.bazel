@@ -33,7 +33,7 @@ proto_library_with_info(
     deps = [
         ":oslogin_proto",
         "//google/cloud:common_resources_proto",
-    ],
+    ] + _PROTO_SUBPACKAGE_DEPS,
 )
 
 ##############################################################################
@@ -46,7 +46,6 @@ load(
     "java_gapic_test",
     "java_grpc_library",
     "java_proto_library",
-    "java_resource_name_proto_library",
 )
 
 _JAVA_PROTO_SUBPACKAGE_DEPS = [
@@ -68,34 +67,24 @@ java_grpc_library(
     deps = [":oslogin_java_proto"] + _JAVA_PROTO_SUBPACKAGE_DEPS,
 )
 
-java_resource_name_proto_library(
-    name = "oslogin_java_gapic_resource_name",
-    gapic_yaml = "//google/cloud/oslogin/v1:oslogin_gapic.yaml",
-    deps = [
-        ":oslogin_proto",
-        "//google/cloud:common_resources_proto",
-    ] + _PROTO_SUBPACKAGE_DEPS,
-)
-
 java_gapic_library(
     name = "oslogin_java_gapic",
-    src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
-    gen_resource_name = False,
-    package = "google.cloud.oslogin.v1",
-    service_yaml = ":oslogin_v1.yaml",
+    srcs = [":oslogin_proto_with_info"],
+    grpc_service_config = "oslogin_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":oslogin_java_grpc",
     ] + _JAVA_GRPC_SUBPACKAGE_DEPS,
+    transport = "grpc+rest",
     deps = [
         ":oslogin_java_proto",
-        ":oslogin_java_gapic_resource_name",
     ] + _JAVA_PROTO_SUBPACKAGE_DEPS,
 )
 
 java_gapic_test(
     name = "oslogin_java_gapic_test_suite",
     test_classes = [
+        "com.google.cloud.oslogin.v1.OsLoginServiceClientHttpJsonTest",
         "com.google.cloud.oslogin.v1.OsLoginServiceClientTest",
     ],
     runtime_deps = [":oslogin_java_gapic_test"],
@@ -104,12 +93,12 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-oslogin-v1-java",
+    transport = "grpc+rest",
     deps = [
         ":oslogin_java_gapic",
         ":oslogin_java_grpc",
         ":oslogin_java_proto",
         ":oslogin_proto",
-        ":oslogin_java_gapic_resource_name",
     ] + _JAVA_PROTO_SUBPACKAGE_DEPS + _PROTO_SUBPACKAGE_DEPS + _JAVA_GRPC_SUBPACKAGE_DEPS,
 )
 
@@ -137,11 +126,12 @@ go_proto_library(
 
 go_gapic_library(
     name = "oslogin_go_gapic",
-    src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
-    importpath = "cloud.google.com/go/oslogin/apiv1",
-    package = "google.cloud.oslogin.v1",
+    srcs = [":oslogin_proto_with_info"],
+    grpc_service_config = "oslogin_grpc_service_config.json",
+    importpath = "cloud.google.com/go/oslogin/apiv1;oslogin",
+    rest_numeric_enums = True,
     service_yaml = "oslogin_v1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":oslogin_go_proto",
         "//google/cloud/oslogin/common:common_go_proto",
@@ -160,7 +150,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-oslogin-v1-go",
     deps = [
         ":oslogin_go_gapic",
-        ":oslogin_go_gapic_srcjar-smoke-test.srcjar",
         ":oslogin_go_gapic_srcjar-test.srcjar",
         ":oslogin_go_proto",
         "//google/cloud/oslogin/common:common_go_proto",
@@ -172,63 +161,46 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-_PY_SUBPACKAGE_DEPS = [
-    "//google/cloud/oslogin/common:common_py_proto",
-    "//google/cloud/oslogin/common:common_py_grpc",
-]
-
-moved_proto_library(
-    name = "oslogin_moved_proto",
-    srcs = [":oslogin_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:field_mask_proto",
-    ] + _PROTO_SUBPACKAGE_DEPS,
-)
-
-py_proto_library(
-    name = "oslogin_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":oslogin_moved_proto"],
-)
-
-py_grpc_library(
-    name = "oslogin_py_grpc",
-    srcs = [":oslogin_moved_proto"],
-    deps = [":oslogin_py_proto"],
 )
 
 py_gapic_library(
     name = "oslogin_py_gapic",
-    src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
-    package = "google.cloud.oslogin.v1",
-    service_yaml = "oslogin_v1.yaml",
+    srcs = [
+        ":oslogin_proto",
+    ],
+    grpc_service_config = "oslogin_grpc_service_config.json",
+    opt_args = [
+        "warehouse-package-name=google-cloud-os-login",
+    ],
+    rest_numeric_enums = True,
+    transport = "grpc",
     deps = [
-        ":oslogin_py_grpc",
-        ":oslogin_py_proto",
-    ] + _PY_SUBPACKAGE_DEPS,
+        "//google/cloud/oslogin/common:common_py_proto",
+    ],
 )
 
-# Open Source Packages
+# Uncomment once https://github.com/googleapis/gapic-generator-python/issues/1376 is fixed
+#py_test(
+#    name = "oslogin_py_gapic_test",
+#    srcs = [
+#        "oslogin_py_gapic_pytest.py",
+#        "oslogin_py_gapic_test.py",
+#    ],
+#    legacy_create_init = False,
+#    deps = [
+#        ":oslogin_py_gapic",
+#    ],
+#)
+
 py_gapic_assembly_pkg(
     name = "oslogin-v1-py",
     deps = [
         ":oslogin_py_gapic",
-        ":oslogin_py_grpc",
-        ":oslogin_py_proto",
-    ] + _PY_SUBPACKAGE_DEPS,
+        #        "//google/cloud/oslogin/common:common_py_gapic",
+        "//google/cloud/oslogin/common:common_py_proto",
+    ],
 )
 
 ##############################################################################
@@ -260,10 +232,10 @@ php_grpc_library(
 
 php_gapic_library(
     name = "oslogin_php_gapic",
-    src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
-    package = "google.cloud.oslogin.v1",
-    service_yaml = "oslogin_v1.yaml",
+    srcs = [":oslogin_proto_with_info"],
+    grpc_service_config = "oslogin_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc+rest",
     deps = [
         ":oslogin_php_grpc",
         ":oslogin_php_proto",
@@ -291,10 +263,14 @@ load(
 
 nodejs_gapic_library(
     name = "oslogin_nodejs_gapic",
+    package_name = "@google-cloud/os-login",
     src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "oslogin_grpc_service_config.json",
     package = "google.cloud.oslogin.v1",
+    rest_numeric_enums = True,
     service_yaml = "oslogin_v1.yaml",
+    transport = "grpc+rest",
     deps = [],
 )
 
@@ -311,8 +287,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -333,12 +309,20 @@ ruby_grpc_library(
     deps = [":oslogin_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "oslogin_ruby_gapic",
-    src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
-    package = "google.cloud.oslogin.v1",
-    service_yaml = "oslogin_v1.yaml",
+    srcs = [":oslogin_proto_with_info"],
+    extra_protoc_parameters = [
+        "ruby-cloud-gem-name=google-cloud-os_login-v1",
+        "ruby-cloud-env-prefix=OS_LOGIN",
+        "ruby-cloud-product-url=https://cloud.google.com/compute/docs/oslogin",
+        "ruby-cloud-api-id=oslogin.googleapis.com",
+        "ruby-cloud-api-shortname=oslogin",
+    ],
+    grpc_service_config = "oslogin_grpc_service_config.json",
+    rest_numeric_enums = True,
+    ruby_cloud_description = "Use OS Login to manage SSH access to your instances using IAM without having to create and manage individual SSH keys. OS Login maintains a consistent Linux user identity across VM instances and is the recommended way to manage many users across multiple instances or projects.",
+    ruby_cloud_title = "Cloud OS Login V1",
     deps = [
         ":oslogin_ruby_grpc",
         ":oslogin_ruby_proto",
@@ -384,9 +368,10 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "oslogin_csharp_gapic",
-    src = ":oslogin_proto_with_info",
-    gapic_yaml = "oslogin_gapic.yaml",
-    package = "google.cloud.oslogin.v1",
+    srcs = [":oslogin_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "oslogin_grpc_service_config.json",
+    rest_numeric_enums = True,
     service_yaml = "oslogin_v1.yaml",
     deps = [
         ":oslogin_csharp_grpc",
@@ -407,4 +392,20 @@ csharp_gapic_assembly_pkg(
 ##############################################################################
 # C++
 ##############################################################################
-# Put your C++ rules here
+load(
+    "@com_google_googleapis_imports//:imports.bzl",
+    "cc_grpc_library",
+    "cc_proto_library",
+)
+
+cc_proto_library(
+    name = "oslogin_cc_proto",
+    deps = [":oslogin_proto"],
+)
+
+cc_grpc_library(
+    name = "oslogin_cc_grpc",
+    srcs = [":oslogin_proto"],
+    grpc_only = True,
+    deps = [":oslogin_cc_proto"],
+)

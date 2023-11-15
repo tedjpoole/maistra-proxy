@@ -83,6 +83,22 @@ pub mod metadata {
         .unwrap()
     }
 
+    pub fn optional_deps_disabled() -> cargo_metadata::Metadata {
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test_data/metadata/crate_optional_deps_disabled/metadata.json"
+        )))
+        .unwrap()
+    }
+
+    pub fn optional_deps_enabled() -> cargo_metadata::Metadata {
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test_data/metadata/crate_optional_deps_enabled/metadata.json"
+        )))
+        .unwrap()
+    }
+
     pub fn common() -> cargo_metadata::Metadata {
         serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -95,6 +111,14 @@ pub mod metadata {
         serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/test_data/metadata/git_repos/metadata.json"
+        )))
+        .unwrap()
+    }
+
+    pub fn has_package_metadata() -> cargo_metadata::Metadata {
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test_data/metadata/has_package_metadata/metadata.json"
         )))
         .unwrap()
     }
@@ -127,6 +151,14 @@ pub mod lockfile {
         .unwrap()
     }
 
+    pub fn multi_cfg_dep() -> cargo_lock::Lockfile {
+        cargo_lock::Lockfile::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test_data/metadata/multi_cfg_dep/Cargo.lock"
+        )))
+        .unwrap()
+    }
+
     pub fn no_deps() -> cargo_lock::Lockfile {
         cargo_lock::Lockfile::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -147,6 +179,14 @@ pub mod lockfile {
         cargo_lock::Lockfile::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/test_data/metadata/git_repos/Cargo.lock"
+        )))
+        .unwrap()
+    }
+
+    pub fn has_package_metadata() -> cargo_lock::Lockfile {
+        cargo_lock::Lockfile::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test_data/metadata/has_package_metadata/Cargo.lock"
         )))
         .unwrap()
     }

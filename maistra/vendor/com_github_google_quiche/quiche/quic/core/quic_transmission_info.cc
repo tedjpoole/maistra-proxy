@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "quiche/quic/core/quic_transmission_info.h"
+
 #include "absl/strings/str_cat.h"
 
 namespace quic {
@@ -15,14 +16,13 @@ QuicTransmissionInfo::QuicTransmissionInfo()
       in_flight(false),
       state(OUTSTANDING),
       has_crypto_handshake(false),
-      has_ack_frequency(false) {}
+      has_ack_frequency(false),
+      ecn_codepoint(ECN_NOT_ECT) {}
 
-QuicTransmissionInfo::QuicTransmissionInfo(EncryptionLevel level,
-                                           TransmissionType transmission_type,
-                                           QuicTime sent_time,
-                                           QuicPacketLength bytes_sent,
-                                           bool has_crypto_handshake,
-                                           bool has_ack_frequency)
+QuicTransmissionInfo::QuicTransmissionInfo(
+    EncryptionLevel level, TransmissionType transmission_type,
+    QuicTime sent_time, QuicPacketLength bytes_sent, bool has_crypto_handshake,
+    bool has_ack_frequency, QuicEcnCodepoint ecn_codepoint)
     : sent_time(sent_time),
       bytes_sent(bytes_sent),
       encryption_level(level),
@@ -30,7 +30,8 @@ QuicTransmissionInfo::QuicTransmissionInfo(EncryptionLevel level,
       in_flight(false),
       state(OUTSTANDING),
       has_crypto_handshake(has_crypto_handshake),
-      has_ack_frequency(has_ack_frequency) {}
+      has_ack_frequency(has_ack_frequency),
+      ecn_codepoint(ecn_codepoint) {}
 
 QuicTransmissionInfo::QuicTransmissionInfo(const QuicTransmissionInfo& other) =
     default;

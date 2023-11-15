@@ -29,48 +29,21 @@ load(
 istioapi_dependencies()
 
 
-BSSL_COMPAT_ORG = "tedjpoole"
-BSSL_COMPAT_REPO = "envoy-openssl"
-BSSL_COMPAT_BRANCH = "OSSM-5001-integrate-into-proxy"
+ENVOY_OPENSSL_ORG = "tedjpoole"
+ENVOY_OPENSSL_REPO = "envoy-openssl"
+ENVOY_OPENSSL_BRANCH = "OSSM-5001-integrate-into-proxy"
+ENVOY_OPENSSL_COMMIT = "de50633d500c960944515f3b75a7ef96278dcab2"
+ENVOY_OPENSSL_SHA256 = "d92c1a34a81e25f58407841511c11e558c6ef08f582393f330def86d9cf00c80"
 
 git_repository(
-    name = "envoy-openssl",
-    remote = "https://github.com/" + BSSL_COMPAT_ORG + "/" + BSSL_COMPAT_REPO + ".git",
-    branch = BSSL_COMPAT_BRANCH,
+    name = "envoy_openssl",
+    remote = "https://github.com/" + ENVOY_OPENSSL_ORG + "/" + ENVOY_OPENSSL_REPO + ".git",
+    commit = ENVOY_OPENSSL_COMMIT,
     init_submodules = True,
 )
 
-
-# 1. Determine SHA256 `wget https://github.com/envoyproxy/envoy/archive/$COMMIT.tar.gz && sha256sum $COMMIT.tar.gz`
-# 2. Update .bazelversion, envoy.bazelrc and .bazelrc if needed.
-#
-# Note: this is needed by release builder to resolve envoy dep sha to tag.
-# Commit date: 2023-07-05
-ENVOY_SHA = "2dd212afec2f291cade88c2122b851d18b9d7f90"
-ENVOY_SHA256 = "7490f48dcefb2adc65eeec8eaf34ef596beabe22f4064fef4d90501db773db39"
-ENVOY_ORG = "envoyproxy"
-ENVOY_REPO = "envoy"
-
-# To override with local envoy, just pass `--override_repository=envoy=/PATH/TO/ENVOY` to Bazel or
-# persist the option in `user.bazelrc`.
-http_archive(
-    name = "envoy",
-    sha256 = ENVOY_SHA256,
-    strip_prefix = ENVOY_REPO + "-" + ENVOY_SHA,
-    url = "https://github.com/" + ENVOY_ORG + "/" + ENVOY_REPO + "/archive/" + ENVOY_SHA + ".tar.gz",
-    patch_args = [ "-p1" ],
-    patches = [
-        "//maistra/patches/envoy:bazel/repositories.bzl.patch",
-        "//maistra/patches/envoy:bazel/BUILD.patch",
-        "//maistra/patches/envoy:source/common/quic/BUILD.patch",
-        "//maistra/patches/envoy:source/extensions/transport_sockets/tls/io_handle_bio.cc.patch",
-        "//maistra/patches/envoy:source/extensions/transport_sockets/tls/ocsp/asn1_utility.cc.patch",
-        "//maistra/patches/envoy:source/extensions/transport_sockets/tls/utility.cc.patch",
-    ],
-    repo_mapping = {
-        "@boringssl": "@bssl-compat",
-    },
-)
+load("@envoy_openssl//:bazel/envoy_openssl_repositories.bzl", "envoy_openssl_repositories")
+envoy_openssl_repositories()
 
 load("@envoy//bazel:api_binding.bzl", "envoy_api_binding")
 envoy_api_binding()

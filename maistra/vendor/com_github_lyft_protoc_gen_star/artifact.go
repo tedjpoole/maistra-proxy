@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-	plugin_go "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"google.golang.org/protobuf/proto"
+	plugin_go "google.golang.org/protobuf/types/pluginpb"
 )
 
 // An Artifact describes the output for a Module. Typically this is the creation
@@ -304,7 +304,7 @@ func cleanGeneratorFileName(name string) (string, error) {
 		return "", errors.New("generator file names must be relative paths")
 	}
 
-	if name = filepath.Clean(name); name == "." || strings.HasPrefix(name, "..") {
+	if name = filepath.ToSlash(filepath.Clean(name)); name == "." || strings.HasPrefix(name, "..") {
 		return "", errors.New("generator file names must be not contain . or .. within them")
 	}
 

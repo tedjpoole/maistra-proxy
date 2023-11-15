@@ -1,3 +1,17 @@
+# Copyright 2023 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Definitions for the modules_mapping.json generation.
 
 The modules_mapping.json file is a mapping from Python modules to the wheel
@@ -12,8 +26,9 @@ module name doesn't match the wheel distribution name.
 def _modules_mapping_impl(ctx):
     modules_mapping = ctx.actions.declare_file(ctx.attr.modules_mapping_name)
     args = ctx.actions.args()
-    args.add(modules_mapping.path)
-    args.add_all([whl.path for whl in ctx.files.wheels])
+    args.add("--output_file", modules_mapping.path)
+    args.add_all("--exclude_patterns", ctx.attr.exclude_patterns)
+    args.add_all("--wheels", [whl.path for whl in ctx.files.wheels])
     ctx.actions.run(
         inputs = ctx.files.wheels,
         outputs = [modules_mapping],
@@ -26,6 +41,11 @@ def _modules_mapping_impl(ctx):
 modules_mapping = rule(
     _modules_mapping_impl,
     attrs = {
+        "exclude_patterns": attr.string_list(
+            default = ["^_|(\\._)+"],
+            doc = "A set of regex patterns to match against each calculated module path. By default, exclude the modules starting with underscores.",
+            mandatory = False,
+        ),
         "modules_mapping_name": attr.string(
             default = "modules_mapping.json",
             doc = "The name for the output JSON file.",
@@ -37,8 +57,8 @@ modules_mapping = rule(
             mandatory = True,
         ),
         "_generator": attr.label(
-            cfg = "host",
-            default = "//gazelle/modules_mapping:generator",
+            cfg = "exec",
+            default = "//modules_mapping:generator",
             executable = True,
         ),
     },

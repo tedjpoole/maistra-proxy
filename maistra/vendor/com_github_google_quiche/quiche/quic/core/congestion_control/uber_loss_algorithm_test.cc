@@ -53,7 +53,7 @@ class UberLossAlgorithmTest : public QuicTest {
     packet.encryption_level = encryption_level;
     packet.retransmittable_frames.push_back(QuicFrame(frame));
     unacked_packets_->AddSentPacket(&packet, NOT_RETRANSMISSION, clock_.Now(),
-                                    true, true);
+                                    true, true, ECN_NOT_ECT);
   }
 
   void AckPackets(const std::vector<uint64_t>& packets_acked) {
@@ -73,8 +73,7 @@ class UberLossAlgorithmTest : public QuicTest {
   }
 
   void VerifyLosses(
-      uint64_t largest_newly_acked,
-      const AckedPacketVector& packets_acked,
+      uint64_t largest_newly_acked, const AckedPacketVector& packets_acked,
       const std::vector<uint64_t>& losses_expected,
       absl::optional<QuicPacketCount> max_sequence_reordering_expected) {
     LostPacketVector lost_packets;

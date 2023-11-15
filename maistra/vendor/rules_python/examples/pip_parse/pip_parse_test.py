@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+# Copyright 2023 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import os
 import subprocess
@@ -35,12 +49,11 @@ class PipInstallTest(unittest.TestCase):
         self.assertListEqual(
             env.split(" "),
             [
-                "external/pypi_s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/INSTALL.md",
-                "external/pypi_s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/LICENSE",
-                "external/pypi_s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/NEWS",
-                "external/pypi_s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/README.md",
-                "external/pypi_s3cmd/s3cmd-2.1.0.data/data/share/man/man1/s3cmd.1",
-                "external/pypi_s3cmd/s3cmd-2.1.0.data/scripts/s3cmd",
+                "external/pypi_s3cmd/data/share/doc/packages/s3cmd/INSTALL.md",
+                "external/pypi_s3cmd/data/share/doc/packages/s3cmd/LICENSE",
+                "external/pypi_s3cmd/data/share/doc/packages/s3cmd/NEWS",
+                "external/pypi_s3cmd/data/share/doc/packages/s3cmd/README.md",
+                "external/pypi_s3cmd/data/share/man/man1/s3cmd.1",
             ],
         )
 
@@ -50,11 +63,12 @@ class PipInstallTest(unittest.TestCase):
         self.assertListEqual(
             env.split(" "),
             [
-                "external/pypi_requests/requests-2.25.1.dist-info/LICENSE",
-                "external/pypi_requests/requests-2.25.1.dist-info/METADATA",
-                "external/pypi_requests/requests-2.25.1.dist-info/RECORD",
-                "external/pypi_requests/requests-2.25.1.dist-info/WHEEL",
-                "external/pypi_requests/requests-2.25.1.dist-info/top_level.txt",
+                "external/pypi_requests/site-packages/requests-2.25.1.dist-info/INSTALLER",
+                "external/pypi_requests/site-packages/requests-2.25.1.dist-info/LICENSE",
+                "external/pypi_requests/site-packages/requests-2.25.1.dist-info/METADATA",
+                "external/pypi_requests/site-packages/requests-2.25.1.dist-info/RECORD",
+                "external/pypi_requests/site-packages/requests-2.25.1.dist-info/WHEEL",
+                "external/pypi_requests/site-packages/requests-2.25.1.dist-info/top_level.txt",
             ],
         )
 

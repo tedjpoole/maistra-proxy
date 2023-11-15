@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import "google/api/annotations.proto";
 import "google/api/client.proto";
 import "google/api/field_behavior.proto";
 import "google/api/resource.proto";
+import "google/api/routing.proto";
 import "google/bigtable/v2/data.proto";
+import "google/bigtable/v2/request_stats.proto";
 import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
 
@@ -30,8 +32,13 @@ option java_multiple_files = true;
 option java_outer_classname = "BigtableProto";
 option java_package = "com.google.bigtable.v2";
 option php_namespace = "Google\\Cloud\\Bigtable\\V2";
+option ruby_package = "Google::Cloud::Bigtable::V2";
 option (google.api.resource_definition) = {
-  type: "bigtable.googleapis.com/Table"
+  type: "bigtableadmin.googleapis.com/Instance"
+  pattern: "projects/{project}/instances/{instance}"
+};
+option (google.api.resource_definition) = {
+  type: "bigtableadmin.googleapis.com/Table"
   pattern: "projects/{project}/instances/{instance}/tables/{table}"
 };
 
@@ -56,6 +63,15 @@ service Bigtable {
       post: "/v2/{table_name=projects/*/instances/*/tables/*}:readRows"
       body: "*"
     };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "table_name"
+        path_template: "{table_name=projects/*/instances/*/tables/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
+    };
     option (google.api.method_signature) = "table_name";
     option (google.api.method_signature) = "table_name,app_profile_id";
   }
@@ -68,6 +84,15 @@ service Bigtable {
     option (google.api.http) = {
       get: "/v2/{table_name=projects/*/instances/*/tables/*}:sampleRowKeys"
     };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "table_name"
+        path_template: "{table_name=projects/*/instances/*/tables/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
+    };
     option (google.api.method_signature) = "table_name";
     option (google.api.method_signature) = "table_name,app_profile_id";
   }
@@ -78,6 +103,15 @@ service Bigtable {
     option (google.api.http) = {
       post: "/v2/{table_name=projects/*/instances/*/tables/*}:mutateRow"
       body: "*"
+    };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "table_name"
+        path_template: "{table_name=projects/*/instances/*/tables/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
     };
     option (google.api.method_signature) = "table_name,row_key,mutations";
     option (google.api.method_signature) = "table_name,row_key,mutations,app_profile_id";
@@ -91,6 +125,15 @@ service Bigtable {
       post: "/v2/{table_name=projects/*/instances/*/tables/*}:mutateRows"
       body: "*"
     };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "table_name"
+        path_template: "{table_name=projects/*/instances/*/tables/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
+    };
     option (google.api.method_signature) = "table_name,entries";
     option (google.api.method_signature) = "table_name,entries,app_profile_id";
   }
@@ -101,8 +144,37 @@ service Bigtable {
       post: "/v2/{table_name=projects/*/instances/*/tables/*}:checkAndMutateRow"
       body: "*"
     };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "table_name"
+        path_template: "{table_name=projects/*/instances/*/tables/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
+    };
     option (google.api.method_signature) = "table_name,row_key,predicate_filter,true_mutations,false_mutations";
     option (google.api.method_signature) = "table_name,row_key,predicate_filter,true_mutations,false_mutations,app_profile_id";
+  }
+
+  // Warm up associated instance metadata for this connection.
+  // This call is not required but may be useful for connection keep-alive.
+  rpc PingAndWarm(PingAndWarmRequest) returns (PingAndWarmResponse) {
+    option (google.api.http) = {
+      post: "/v2/{name=projects/*/instances/*}:ping"
+      body: "*"
+    };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "name"
+        path_template: "{name=projects/*/instances/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
+    };
+    option (google.api.method_signature) = "name";
+    option (google.api.method_signature) = "name,app_profile_id";
   }
 
   // Modifies a row atomically on the server. The method reads the latest
@@ -115,6 +187,15 @@ service Bigtable {
       post: "/v2/{table_name=projects/*/instances/*/tables/*}:readModifyWriteRow"
       body: "*"
     };
+    option (google.api.routing) = {
+      routing_parameters {
+        field: "table_name"
+        path_template: "{table_name=projects/*/instances/*/tables/*}"
+      }
+      routing_parameters {
+        field: "app_profile_id"
+      }
+    };
     option (google.api.method_signature) = "table_name,row_key,rules";
     option (google.api.method_signature) = "table_name,row_key,rules,app_profile_id";
   }
@@ -122,30 +203,51 @@ service Bigtable {
 
 // Request message for Bigtable.ReadRows.
 message ReadRowsRequest {
+  //
+  // The desired view into RequestStats that should be returned in the response.
+  //
+  // See also: RequestStats message.
+  enum RequestStatsView {
+    // The default / unset value. The API will default to the NONE option below.
+    REQUEST_STATS_VIEW_UNSPECIFIED = 0;
+
+    // Do not include any RequestStats in the response. This will leave the
+    // RequestStats embedded message unset in the response.
+    REQUEST_STATS_NONE = 1;
+
+    // Include the full set of available RequestStats in the response,
+    // applicable to this read.
+    REQUEST_STATS_FULL = 2;
+  }
+
   // Required. The unique name of the table from which to read.
   // Values are of the form
   // `projects/<project>/instances/<instance>/tables/<table>`.
   string table_name = 1 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.resource_reference) = {
-      type: "bigtable.googleapis.com/Table"
+      type: "bigtableadmin.googleapis.com/Table"
     }
   ];
 
-  // This value specifies routing for replication. If not specified, the
-  // "default" application profile will be used.
+  // This value specifies routing for replication. This API only accepts the
+  // empty value of app_profile_id.
   string app_profile_id = 5;
 
-  // The row keys and/or ranges to read. If not specified, reads from all rows.
+  // The row keys and/or ranges to read sequentially. If not specified, reads
+  // from all rows.
   RowSet rows = 2;
 
   // The filter to apply to the contents of the specified row(s). If unset,
   // reads the entirety of each row.
   RowFilter filter = 3;
 
-  // The read will terminate after committing to N rows' worth of results. The
+  // The read will stop after committing to N rows' worth of results. The
   // default (zero) is to return all results.
   int64 rows_limit = 4;
+
+  // The view into RequestStats, as described above.
+  RequestStatsView request_stats_view = 6;
 }
 
 // Response message for Bigtable.ReadRows.
@@ -157,9 +259,6 @@ message ReadRowsResponse {
     // this CellChunk is a continuation of the same row as the previous
     // CellChunk in the response stream, even if that CellChunk was in a
     // previous ReadRowsResponse message.
-    //
-    // Classified as IDENTIFYING_ID to provide context around data accesses for
-    // auditing systems.
     bytes row_key = 1;
 
     // The column family name for this chunk of data.  If this message
@@ -228,6 +327,28 @@ message ReadRowsResponse {
   // lot of data that was filtered out since the last committed row
   // key, allowing the client to skip that work on a retry.
   bytes last_scanned_row_key = 2;
+
+  //
+  // If requested, provide enhanced query performance statistics. The semantics
+  // dictate:
+  //   * request_stats is empty on every (streamed) response, except
+  //   * request_stats has non-empty information after all chunks have been
+  //     streamed, where the ReadRowsResponse message only contains
+  //     request_stats.
+  //       * For example, if a read request would have returned an empty
+  //         response instead a single ReadRowsResponse is streamed with empty
+  //         chunks and request_stats filled.
+  //
+  // Visually, response messages will stream as follows:
+  //    ... -> {chunks: [...]} -> {chunks: [], request_stats: {...}}
+  //   \______________________/  \________________________________/
+  //       Primary response         Trailer of RequestStats info
+  //
+  // Or if the read did not return any values:
+  //   {chunks: [], request_stats: {...}}
+  //   \________________________________/
+  //      Trailer of RequestStats info
+  RequestStats request_stats = 3;
 }
 
 // Request message for Bigtable.SampleRowKeys.
@@ -238,7 +359,7 @@ message SampleRowKeysRequest {
   string table_name = 1 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.resource_reference) = {
-      type: "bigtable.googleapis.com/Table"
+      type: "bigtableadmin.googleapis.com/Table"
     }
   ];
 
@@ -256,9 +377,6 @@ message SampleRowKeysResponse {
   // Note that row keys in this list may not have ever been written to or read
   // from, and users should therefore not make any assumptions about the row key
   // structure that are specific to their use case.
-  //
-  // Classified as IDENTIFYING_ID to provide context around data accesses for
-  // auditing systems.
   bytes row_key = 1;
 
   // Approximate total storage space used by all rows in the table which precede
@@ -276,7 +394,7 @@ message MutateRowRequest {
   string table_name = 1 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.resource_reference) = {
-      type: "bigtable.googleapis.com/Table"
+      type: "bigtableadmin.googleapis.com/Table"
     }
   ];
 
@@ -285,9 +403,6 @@ message MutateRowRequest {
   string app_profile_id = 4;
 
   // Required. The key of the row to which the mutation should be applied.
-  //
-  // Classified as IDENTIFYING_ID to provide context around data accesses for
-  // auditing systems.
   bytes row_key = 2 [(google.api.field_behavior) = REQUIRED];
 
   // Required. Changes to be atomically applied to the specified row. Entries are applied
@@ -306,9 +421,6 @@ message MutateRowsRequest {
   // A mutation for a given row.
   message Entry {
     // The key of the row to which the `mutations` should be applied.
-    //
-    // Classified as IDENTIFYING_ID to provide context around data accesses for
-    // auditing systems.
     bytes row_key = 1;
 
     // Required. Changes to be atomically applied to the specified row. Mutations are
@@ -322,7 +434,7 @@ message MutateRowsRequest {
   string table_name = 1 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.resource_reference) = {
-      type: "bigtable.googleapis.com/Table"
+      type: "bigtableadmin.googleapis.com/Table"
     }
   ];
 
@@ -366,7 +478,7 @@ message CheckAndMutateRowRequest {
   string table_name = 1 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.resource_reference) = {
-      type: "bigtable.googleapis.com/Table"
+      type: "bigtableadmin.googleapis.com/Table"
     }
   ];
 
@@ -375,9 +487,6 @@ message CheckAndMutateRowRequest {
   string app_profile_id = 7;
 
   // Required. The key of the row to which the conditional mutation should be applied.
-  //
-  // Classified as IDENTIFYING_ID to provide context around data accesses for
-  // auditing systems.
   bytes row_key = 2 [(google.api.field_behavior) = REQUIRED];
 
   // The filter to be applied to the contents of the specified row. Depending
@@ -408,6 +517,25 @@ message CheckAndMutateRowResponse {
   bool predicate_matched = 1;
 }
 
+// Request message for client connection keep-alive and warming.
+message PingAndWarmRequest {
+  // Required. The unique name of the instance to check permissions for as well as
+  // respond. Values are of the form `projects/<project>/instances/<instance>`.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "bigtableadmin.googleapis.com/Instance"
+    }
+  ];
+
+  // This value specifies routing for replication. If not specified, the
+  // "default" application profile will be used.
+  string app_profile_id = 2;
+}
+
+// Response message for Bigtable.PingAndWarm connection keepalive and warming.
+message PingAndWarmResponse {}
+
 // Request message for Bigtable.ReadModifyWriteRow.
 message ReadModifyWriteRowRequest {
   // Required. The unique name of the table to which the read/modify/write rules should be
@@ -417,7 +545,7 @@ message ReadModifyWriteRowRequest {
   string table_name = 1 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.resource_reference) = {
-      type: "bigtable.googleapis.com/Table"
+      type: "bigtableadmin.googleapis.com/Table"
     }
   ];
 
@@ -426,9 +554,6 @@ message ReadModifyWriteRowRequest {
   string app_profile_id = 4;
 
   // Required. The key of the row to which the read/modify/write rules should be applied.
-  //
-  // Classified as IDENTIFYING_ID to provide context around data accesses for
-  // auditing systems.
   bytes row_key = 2 [(google.api.field_behavior) = REQUIRED];
 
   // Required. Rules specifying how the specified row's contents are to be transformed

@@ -1,6 +1,8 @@
 load("@{rules_go_repo_name}//go/private/rules:binary.bzl", "go_tool_binary")
 load("@{rules_go_repo_name}//go/private/rules:sdk.bzl", "package_list")
-load("@{rules_go_repo_name}//go:def.bzl", "declare_toolchains", "go_sdk")
+load("@{rules_go_repo_name}//go/private/rules:transition.bzl", "non_go_reset_target")
+load("@{rules_go_repo_name}//go/private:go_toolchain.bzl", "declare_go_toolchains")
+load("@{rules_go_repo_name}//go:def.bzl", "go_sdk")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,6 +10,7 @@ filegroup(
     name = "libs",
     srcs = glob(
         ["pkg/{goos}_{goarch}/**/*.a"],
+        allow_empty = True,
         exclude = ["pkg/{goos}_{goarch}/**/cmd/**"],
     ),
 )
@@ -24,20 +27,25 @@ filegroup(
 
 filegroup(
     name = "tools",
-    srcs = glob(["pkg/tool/**", "bin/gofmt*"])
+    srcs = glob([
+        "pkg/tool/**",
+        "bin/gofmt*",
+    ]),
 )
 
 go_sdk(
     name = "go_sdk",
-    goos = "{goos}",
-    goarch = "{goarch}",
-    root_file = "ROOT",
-    package_list = ":package_list",
-    libs = [":libs"],
-    headers = [":headers"],
     srcs = [":srcs"],
-    tools = [":tools"],
+    experiments = {experiments},
     go = "bin/go{exe}",
+    goarch = "{goarch}",
+    goos = "{goos}",
+    headers = [":headers"],
+    libs = [":libs"],
+    package_list = ":package_list",
+    root_file = "ROOT",
+    tools = [":tools"],
+    version = "{version}",
 )
 
 go_tool_binary(
@@ -46,19 +54,24 @@ go_tool_binary(
     sdk = ":go_sdk",
 )
 
+non_go_reset_target(
+    name = "builder_reset",
+    dep = ":builder",
+)
+
 # TODO(jayconrod): Gazelle depends on this file directly. This dependency
 # should be broken, and this rule should be folded into go_sdk.
 package_list(
     name = "package_list",
     srcs = [":srcs"],
-    root_file = "ROOT",
     out = "packages.txt",
+    root_file = "ROOT",
 )
 
-declare_toolchains(
-    host = "{goos}_{goarch}",
+declare_go_toolchains(
+    builder = ":builder_reset",
+    host_goos = "{goos}",
     sdk = ":go_sdk",
-    builder = ":builder",
 )
 
 filegroup(
@@ -71,6 +84,9 @@ filegroup(
 )
 
 exports_files(
-    ["lib/time/zoneinfo.zip"],
+    glob([
+        "lib/time/zoneinfo.zip",
+        "misc/wasm/**",
+    ]),
     visibility = ["//visibility:public"],
 )

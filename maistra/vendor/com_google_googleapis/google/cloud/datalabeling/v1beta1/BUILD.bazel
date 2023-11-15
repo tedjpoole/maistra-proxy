@@ -26,6 +26,8 @@ proto_library(
     deps = [
         "//google/api:annotations_proto",
         "//google/api:client_proto",
+        "//google/api:field_behavior_proto",
+        "//google/api:resource_proto",
         "//google/longrunning:operations_proto",
         "//google/rpc:status_proto",
         "@com_google_protobuf//:duration_proto",
@@ -68,13 +70,13 @@ java_grpc_library(
 
 java_gapic_library(
     name = "datalabeling_java_gapic",
-    src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
-    package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
+    srcs = [":datalabeling_proto_with_info"],
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":datalabeling_java_grpc",
     ],
+    transport = "grpc",
     deps = [
         ":datalabeling_java_proto",
     ],
@@ -91,6 +93,8 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-datalabeling-v1beta1-java",
+    include_samples = True,
+    transport = "grpc",
     deps = [
         ":datalabeling_java_gapic",
         ":datalabeling_java_grpc",
@@ -124,16 +128,17 @@ go_proto_library(
 
 go_gapic_library(
     name = "datalabeling_go_gapic",
-    src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
-    importpath = "cloud.google.com/go/datalabeling/apiv1beta1",
-    package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
+    srcs = [":datalabeling_proto_with_info"],
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    importpath = "cloud.google.com/go/datalabeling/apiv1beta1;datalabeling",
+    rest_numeric_enums = True,
+    service_yaml = "datalabeling_v1beta1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":datalabeling_go_proto",
-        "//google/longrunning:longrunning_go_gapic",
         "//google/longrunning:longrunning_go_proto",
-        "@com_google_cloud_go//longrunning:go_default_library",
+        "@com_google_cloud_go_longrunning//:go_default_library",
+        "@com_google_cloud_go_longrunning//autogen:go_default_library",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
     ],
 )
@@ -150,7 +155,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-datalabeling-v1beta1-go",
     deps = [
         ":datalabeling_go_gapic",
-        ":datalabeling_go_gapic_srcjar-smoke-test.srcjar",
         ":datalabeling_go_gapic_srcjar-test.srcjar",
         ":datalabeling_go_proto",
     ],
@@ -161,59 +165,33 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "datalabeling_moved_proto",
-    srcs = [":datalabeling_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/longrunning:operations_proto",
-        "//google/rpc:status_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:timestamp_proto",
-    ],
-)
-
-py_proto_library(
-    name = "datalabeling_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":datalabeling_moved_proto"],
-)
-
-py_grpc_library(
-    name = "datalabeling_py_grpc",
-    srcs = [":datalabeling_moved_proto"],
-    deps = [":datalabeling_py_proto"],
+    "py_test",
 )
 
 py_gapic_library(
     name = "datalabeling_py_gapic",
-    src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
-    package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
-    deps = [
-        ":datalabeling_py_grpc",
-        ":datalabeling_py_proto",
-    ],
+    srcs = [":datalabeling_proto"],
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc",
 )
 
-# Open Source Packages
+py_test(
+    name = "datalabeling_py_gapic_test",
+    srcs = [
+        "datalabeling_py_gapic_pytest.py",
+        "datalabeling_py_gapic_test.py",
+    ],
+    legacy_create_init = False,
+    deps = [":datalabeling_py_gapic"],
+)
+
 py_gapic_assembly_pkg(
     name = "datalabeling-v1beta1-py",
     deps = [
         ":datalabeling_py_gapic",
-        ":datalabeling_py_grpc",
-        ":datalabeling_py_proto",
     ],
 )
 
@@ -241,10 +219,11 @@ php_grpc_library(
 
 php_gapic_library(
     name = "datalabeling_php_gapic",
-    src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
-    package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
+    srcs = [":datalabeling_proto_with_info"],
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    rest_numeric_enums = True,
+    service_yaml = "datalabeling_v1beta1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":datalabeling_php_grpc",
         ":datalabeling_php_proto",
@@ -272,10 +251,15 @@ load(
 
 nodejs_gapic_library(
     name = "datalabeling_nodejs_gapic",
+    package_name = "@google-cloud/datalabeling",
     src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    main_service = "datalabeling",
     package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
+    rest_numeric_enums = True,
+    service_yaml = "datalabeling_v1beta1.yaml",
+    transport = "grpc",
     deps = [],
 )
 
@@ -292,8 +276,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -309,12 +293,20 @@ ruby_grpc_library(
     deps = [":datalabeling_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "datalabeling_ruby_gapic",
-    src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
-    package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
+    srcs = [":datalabeling_proto_with_info"],
+    extra_protoc_parameters = [
+        "ruby-cloud-gem-name=google-cloud-data_labeling-v1beta1",
+        "ruby-cloud-env-prefix=DATA_LABELING",
+        "ruby-cloud-product-url=https://cloud.google.com/ai-platform/data-labeling/docs",
+        "ruby-cloud-api-id=datalabeling.googleapis.com",
+        "ruby-cloud-api-shortname=datalabeling",
+    ],
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    rest_numeric_enums = True,
+    ruby_cloud_description = "AI Platform Data Labeling Service lets you work with human labelers to generate highly accurate labels for a collection of data that you can use in machine learning models.",
+    ruby_cloud_title = "AI Platform Data Labeling Service V1beta1",
     deps = [
         ":datalabeling_ruby_grpc",
         ":datalabeling_ruby_proto",
@@ -355,10 +347,11 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "datalabeling_csharp_gapic",
-    src = ":datalabeling_proto_with_info",
-    gapic_yaml = "datalabeling_gapic.yaml",
-    package = "google.cloud.datalabeling.v1beta1",
-    service_yaml = "//google/cloud/datalabeling:datalabeling_v1beta1.yaml",
+    srcs = [":datalabeling_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "datalabeling_grpc_service_config.json",
+    rest_numeric_enums = True,
+    service_yaml = "datalabeling_v1beta1.yaml",
     deps = [
         ":datalabeling_csharp_grpc",
         ":datalabeling_csharp_proto",

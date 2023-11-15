@@ -170,10 +170,7 @@ const char* QuicUtils::SentPacketStateToString(SentPacketState state) {
     RETURN_STRING_LITERAL(NEUTERED);
     RETURN_STRING_LITERAL(HANDSHAKE_RETRANSMITTED);
     RETURN_STRING_LITERAL(LOST);
-    RETURN_STRING_LITERAL(TLP_RETRANSMITTED);
-    RETURN_STRING_LITERAL(RTO_RETRANSMITTED);
     RETURN_STRING_LITERAL(PTO_RETRANSMITTED);
-    RETURN_STRING_LITERAL(PROBE_RETRANSMITTED);
     RETURN_STRING_LITERAL(NOT_CONTRIBUTING_RTT);
   }
   return "INVALID_SENT_PACKET_STATE";
@@ -289,14 +286,8 @@ SentPacketState QuicUtils::RetransmissionTypeToPacketState(
       return HANDSHAKE_RETRANSMITTED;
     case LOSS_RETRANSMISSION:
       return LOST;
-    case TLP_RETRANSMISSION:
-      return TLP_RETRANSMITTED;
-    case RTO_RETRANSMISSION:
-      return RTO_RETRANSMITTED;
     case PTO_RETRANSMISSION:
       return PTO_RETRANSMITTED;
-    case PROBING_RETRANSMISSION:
-      return PROBE_RETRANSMITTED;
     case PATH_RETRANSMISSION:
       return NOT_CONTRIBUTING_RTT;
     case ALL_INITIAL_RETRANSMISSION:
@@ -367,8 +358,7 @@ bool QuicUtils::IsServerInitiatedStreamId(QuicTransportVersion version,
 }
 
 // static
-bool QuicUtils::IsOutgoingStreamId(ParsedQuicVersion version,
-                                   QuicStreamId id,
+bool QuicUtils::IsOutgoingStreamId(ParsedQuicVersion version, QuicStreamId id,
                                    Perspective perspective) {
   // Streams are outgoing streams, iff:
   // - we are the server and the stream is server-initiated
@@ -387,8 +377,7 @@ bool QuicUtils::IsBidirectionalStreamId(QuicStreamId id,
 }
 
 // static
-StreamType QuicUtils::GetStreamType(QuicStreamId id,
-                                    Perspective perspective,
+StreamType QuicUtils::GetStreamType(QuicStreamId id, Perspective perspective,
                                     bool peer_initiated,
                                     ParsedQuicVersion version) {
   QUICHE_DCHECK(version.HasIetfQuicFrames());
@@ -422,8 +411,7 @@ QuicStreamId QuicUtils::StreamIdDelta(QuicTransportVersion version) {
 
 // static
 QuicStreamId QuicUtils::GetFirstBidirectionalStreamId(
-    QuicTransportVersion version,
-    Perspective perspective) {
+    QuicTransportVersion version, Perspective perspective) {
   if (VersionHasIetfQuicFrames(version)) {
     return perspective == Perspective::IS_CLIENT ? 0 : 1;
   } else if (QuicVersionUsesCryptoFrames(version)) {
@@ -434,8 +422,7 @@ QuicStreamId QuicUtils::GetFirstBidirectionalStreamId(
 
 // static
 QuicStreamId QuicUtils::GetFirstUnidirectionalStreamId(
-    QuicTransportVersion version,
-    Perspective perspective) {
+    QuicTransportVersion version, Perspective perspective) {
   if (VersionHasIetfQuicFrames(version)) {
     return perspective == Perspective::IS_CLIENT ? 2 : 3;
   } else if (QuicVersionUsesCryptoFrames(version)) {
@@ -457,41 +444,6 @@ QuicStreamId QuicUtils::GetMaxClientInitiatedBidirectionalStreamId(
 }
 
 // static
-QuicConnectionId QuicUtils::CreateReplacementConnectionId(
-    const QuicConnectionId& connection_id) {
-  return CreateReplacementConnectionId(connection_id,
-                                       kQuicDefaultConnectionIdLength);
-}
-
-// static
-QuicConnectionId QuicUtils::CreateReplacementConnectionId(
-    const QuicConnectionId& connection_id,
-    uint8_t expected_connection_id_length) {
-  if (expected_connection_id_length == 0) {
-    return EmptyQuicConnectionId();
-  }
-  const uint64_t connection_id_hash64 = FNV1a_64_Hash(
-      absl::string_view(connection_id.data(), connection_id.length()));
-  if (expected_connection_id_length <= sizeof(uint64_t)) {
-    return QuicConnectionId(
-        reinterpret_cast<const char*>(&connection_id_hash64),
-        expected_connection_id_length);
-  }
-  char new_connection_id_data[255] = {};
-  const absl::uint128 connection_id_hash128 = FNV1a_128_Hash(
-      absl::string_view(connection_id.data(), connection_id.length()));
-  static_assert(sizeof(connection_id_hash64) + sizeof(connection_id_hash128) <=
-                    sizeof(new_connection_id_data),
-                "bad size");
-  memcpy(new_connection_id_data, &connection_id_hash64,
-         sizeof(connection_id_hash64));
-  memcpy(new_connection_id_data + sizeof(connection_id_hash64),
-         &connection_id_hash128, sizeof(connection_id_hash128));
-  return QuicConnectionId(new_connection_id_data,
-                          expected_connection_id_length);
-}
-
-// static
 QuicConnectionId QuicUtils::CreateRandomConnectionId() {
   return CreateRandomConnectionId(kQuicDefaultConnectionIdLength,
                                   QuicRandom::GetInstance());
@@ -510,8 +462,7 @@ QuicConnectionId QuicUtils::CreateRandomConnectionId(
 
 // static
 QuicConnectionId QuicUtils::CreateRandomConnectionId(
-    uint8_t connection_id_length,
-    QuicRandom* random) {
+    uint8_t connection_id_length, QuicRandom* random) {
   QuicConnectionId connection_id;
   connection_id.set_length(connection_id_length);
   if (connection_id.length() > 0) {
@@ -533,8 +484,7 @@ QuicConnectionId QuicUtils::CreateZeroConnectionId(
 
 // static
 bool QuicUtils::IsConnectionIdLengthValidForVersion(
-    size_t connection_id_length,
-    QuicTransportVersion transport_version) {
+    size_t connection_id_length, QuicTransportVersion transport_version) {
   // No version of QUIC can support lengths that do not fit in an uint8_t.
   if (connection_id_length >
       static_cast<size_t>(std::numeric_limits<uint8_t>::max())) {
@@ -553,21 +503,12 @@ bool QuicUtils::IsConnectionIdLengthValidForVersion(
   if (!VersionAllowsVariableLengthConnectionIds(transport_version)) {
     return connection_id_length8 == kQuicDefaultConnectionIdLength;
   }
-  // Versions that do support variable length but do not have length-prefixed
-  // connection IDs use the 4-bit connection ID length encoding which can
-  // only encode values 0 and 4-18.
-  if (!VersionHasLengthPrefixedConnectionIds(transport_version)) {
-    return connection_id_length8 == 0 ||
-           (connection_id_length8 >= 4 &&
-            connection_id_length8 <= kQuicMaxConnectionId4BitLength);
-  }
   return connection_id_length8 <= kQuicMaxConnectionIdWithLengthPrefixLength;
 }
 
 // static
 bool QuicUtils::IsConnectionIdValidForVersion(
-    QuicConnectionId connection_id,
-    QuicTransportVersion transport_version) {
+    QuicConnectionId connection_id, QuicTransportVersion transport_version) {
   return IsConnectionIdLengthValidForVersion(connection_id.length(),
                                              transport_version);
 }
@@ -608,7 +549,7 @@ PacketNumberSpace QuicUtils::GetPacketNumberSpace(
 }
 
 // static
-EncryptionLevel QuicUtils::GetEncryptionLevel(
+EncryptionLevel QuicUtils::GetEncryptionLevelToSendAckofSpace(
     PacketNumberSpace packet_number_space) {
   switch (packet_number_space) {
     case INITIAL_DATA:
@@ -651,8 +592,7 @@ bool QuicUtils::IsAckElicitingFrame(QuicFrameType type) {
 
 // static
 bool QuicUtils::AreStatelessResetTokensEqual(
-    const StatelessResetToken& token1,
-    const StatelessResetToken& token2) {
+    const StatelessResetToken& token1, const StatelessResetToken& token2) {
   char byte = 0;
   for (size_t i = 0; i < kStatelessResetTokenLength; i++) {
     // This avoids compiler optimizations that could make us stop comparing

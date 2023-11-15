@@ -239,9 +239,9 @@ included files (those you still generate separately).
 
 ### Root type
 
-This declares what you consider to be the root table (or struct) of the
-serialized data. This is particularly important for parsing JSON data,
-which doesn't include object type information.
+This declares what you consider to be the root table of the serialized
+data. This is particularly important for parsing JSON data, which doesn't
+include object type information.
 
 ### File identification and extension
 
@@ -309,11 +309,11 @@ in the corresponding C++ code. Multiple such lines per item are allowed.
 
 ### Attributes
 
-Attributes may be attached to a declaration, behind a field, or after
-the name of a table/struct/enum/union. These may either have a value or
-not. Some attributes like `deprecated` are understood by the compiler;
-user defined ones need to be declared with the attribute declaration
-(like `priority` in the example above), and are
+Attributes may be attached to a declaration, behind a field/enum value,
+or after the name of a table/struct/enum/union. These may either have
+a value or not. Some attributes like `deprecated` are understood by
+the compiler; user defined ones need to be declared with the attribute
+declaration (like `priority` in the example above), and are
 available to query if you parse the schema at runtime.
 This is useful if you write your own code generators/editors etc., and
 you wish to add additional information specific to your tool (such as a
@@ -490,7 +490,7 @@ as much as possible such that you can use tables where you might be
 tempted to use a dictionary.
 
 Similarly, strings as values should only be used when they are
-truely open-ended. If you can, always use an enum instead.
+truly open-ended. If you can, always use an enum instead.
 
 FlatBuffers doesn't have inheritance, so the way to represent a set
 of related data structures is a union. Unions do have a cost however,
@@ -552,7 +552,7 @@ the world. If this is not practical for you, use explicit field ids, which
 should always generate a merge conflict if two people try to allocate the same
 id.
 
-### Schema evolution examples
+### Schema evolution examples (tables)
 
 Some examples to clarify what happens as you change a schema:
 
@@ -592,7 +592,7 @@ we keep the sequence of ids.
 
     table { b:int; }
 
-NOT ok. We can only remove a field by deprecation, regardless of wether we use
+NOT ok. We can only remove a field by deprecation, regardless of whether we use
 explicit ids or not.
 
     table { a:uint; b:uint; }
@@ -614,6 +614,41 @@ Occasionally ok. You've renamed fields, which will break all code (and JSON
 files!) that use this schema, but as long as the change is obvious, this is not
 incompatible with the actual binary buffers, since those only ever address
 fields by id/offset.
+
+#### Schema evolution examples (unions)
+
+Suppose we have the following schema:
+```
+union Foo { A, B }
+```
+We can add another variant at the end.
+```
+union Foo { A, B, another_a: A }
+```
+and this will be okay. Old code will not recognize `another_a`.
+However if we add `another_a` anywhere but the end, e.g.
+```
+union Foo { A, another_a: A, B }
+```
+this is not okay. When new code writes `another_a`, old code will
+misinterpret it as `B` (and vice versa). However you can explicitly
+set the union's "discriminant" value like so:
+```
+union Foo { A = 1, another_a: A = 3, B = 2 }
+```
+This is okay.
+
+```
+union Foo { original_a: A = 1, another_a: A = 3, B = 2 }
+```
+Renaming fields will break code and any saved human readable representations,
+such as json files, but the binary buffers will be the same.
+
+
+
+
+
+
 <br>
 
 ### Testing whether a field is present in a table
@@ -637,10 +672,14 @@ optional type.
 Some `FlatBufferBuilder` implementations have an option called `force_defaults`
 that circumvents this "not writing defaults" behavior you can then use
 `IsFieldPresent` to query presence.
-
+/
 Another option that works in all languages is to wrap a scalar field in a
 struct. This way it will return null if it is not present. This will be slightly
 less ergonomic but structs don't take up any more space than the scalar they
 represent.
 
    [Interface Definition Language]: https://en.wikipedia.org/wiki/Interface_description_language
+
+## Writing your own code generator.
+
+See [our intermediate representation](@ref intermediate_representation).

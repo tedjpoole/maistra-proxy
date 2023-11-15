@@ -1,3 +1,17 @@
+# Copyright 2023 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 import platform
@@ -52,6 +66,19 @@ def main(conf_file):
                     "--override_repository=rules_python=%s/rules_python"
                     % os.environ["TEST_SRCDIR"]
                 )
+                bazel_args.append(
+                    "--override_repository=rules_python_gazelle_plugin=%s/rules_python_gazelle_plugin"
+                    % os.environ["TEST_SRCDIR"]
+                )
+
+                # TODO: --override_module isn't supported in the current BAZEL_VERSION (5.2.0)
+                # This condition and attribute can be removed when bazel is updated for
+                # the rest of rules_python.
+                if config["bzlmod"]:
+                    bazel_args.append(
+                        "--override_module=rules_python=%s/rules_python"
+                        % os.environ["TEST_SRCDIR"]
+                    )
 
                 # Bazel's wrapper script needs this or you get
                 # 2020/07/13 21:58:11 could not get the user's cache directory: $HOME is not defined

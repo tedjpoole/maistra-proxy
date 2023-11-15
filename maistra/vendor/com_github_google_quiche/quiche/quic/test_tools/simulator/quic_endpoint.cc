@@ -23,10 +23,8 @@ const QuicStreamId kDataStream = 3;
 const QuicByteCount kWriteChunkSize = 128 * 1024;
 const char kStreamDataContents = 'Q';
 
-QuicEndpoint::QuicEndpoint(Simulator* simulator,
-                           std::string name,
-                           std::string peer_name,
-                           Perspective perspective,
+QuicEndpoint::QuicEndpoint(Simulator* simulator, std::string name,
+                           std::string peer_name, Perspective perspective,
                            QuicConnectionId connection_id)
     : QuicEndpointBase(simulator, name, peer_name),
       bytes_to_transfer_(0),
@@ -36,18 +34,24 @@ QuicEndpoint::QuicEndpoint(Simulator* simulator,
   connection_ = std::make_unique<QuicConnection>(
       connection_id, GetAddressFromName(name), GetAddressFromName(peer_name),
       simulator, simulator->GetAlarmFactory(), &writer_, false, perspective,
-      ParsedVersionOfIndex(CurrentSupportedVersions(), 0));
+      ParsedVersionOfIndex(CurrentSupportedVersions(), 0),
+      connection_id_generator_);
   connection_->set_visitor(this);
   connection_->SetEncrypter(ENCRYPTION_FORWARD_SECURE,
-                            std::make_unique<NullEncrypter>(perspective));
+                            std::make_unique<quic::test::TaggingEncrypter>(
+                                ENCRYPTION_FORWARD_SECURE));
   connection_->SetEncrypter(ENCRYPTION_INITIAL, nullptr);
   if (connection_->version().KnowsWhichDecrypterToUse()) {
-    connection_->InstallDecrypter(ENCRYPTION_FORWARD_SECURE,
-                                  std::make_unique<NullDecrypter>(perspective));
+    connection_->InstallDecrypter(
+        ENCRYPTION_FORWARD_SECURE,
+        std::make_unique<quic::test::StrictTaggingDecrypter>(
+            ENCRYPTION_FORWARD_SECURE));
     connection_->RemoveDecrypter(ENCRYPTION_INITIAL);
   } else {
-    connection_->SetDecrypter(ENCRYPTION_FORWARD_SECURE,
-                              std::make_unique<NullDecrypter>(perspective));
+    connection_->SetDecrypter(
+        ENCRYPTION_FORWARD_SECURE,
+        std::make_unique<quic::test::StrictTaggingDecrypter>(
+            ENCRYPTION_FORWARD_SECURE));
   }
   connection_->SetDefaultEncryptionLevel(ENCRYPTION_FORWARD_SECURE);
   connection_->OnHandshakeComplete();
@@ -153,27 +157,15 @@ void QuicEndpoint::OnCanWrite() {
   WriteStreamData();
 }
 
-bool QuicEndpoint::SendProbingData() {
-  if (connection()->sent_packet_manager().MaybeRetransmitOldestPacket(
-          PROBING_RETRANSMISSION)) {
-    return true;
-  }
-  return false;
-}
-
 bool QuicEndpoint::WillingAndAbleToWrite() const {
   if (notifier_ != nullptr) {
     return notifier_->WillingToWrite();
   }
   return bytes_to_transfer_ != 0;
 }
-bool QuicEndpoint::ShouldKeepConnectionAlive() const {
-  return true;
-}
+bool QuicEndpoint::ShouldKeepConnectionAlive() const { return true; }
 
-bool QuicEndpoint::AllowSelfAddressChange() const {
-  return false;
-}
+bool QuicEndpoint::AllowSelfAddressChange() const { return false; }
 
 bool QuicEndpoint::OnFrameAcked(const QuicFrame& frame,
                                 QuicTime::Delta ack_delay_time,
@@ -200,9 +192,7 @@ bool QuicEndpoint::IsFrameOutstanding(const QuicFrame& frame) const {
   return notifier_->IsFrameOutstanding(frame);
 }
 
-bool QuicEndpoint::HasUnackedCryptoData() const {
-  return false;
-}
+bool QuicEndpoint::HasUnackedCryptoData() const { return false; }
 
 bool QuicEndpoint::HasUnackedStreamData() const {
   if (notifier_ != nullptr) {
@@ -216,9 +206,7 @@ HandshakeState QuicEndpoint::GetHandshakeState() const {
 }
 
 WriteStreamDataResult QuicEndpoint::DataProducer::WriteStreamData(
-    QuicStreamId /*id*/,
-    QuicStreamOffset /*offset*/,
-    QuicByteCount data_length,
+    QuicStreamId /*id*/, QuicStreamOffset /*offset*/, QuicByteCount data_length,
     QuicDataWriter* writer) {
   writer->WriteRepeatedByte(kStreamDataContents, data_length);
   return WRITE_SUCCESS;

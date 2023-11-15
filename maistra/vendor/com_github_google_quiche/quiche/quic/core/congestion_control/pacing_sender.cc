@@ -26,11 +26,7 @@ PacingSender::PacingSender()
       initial_burst_size_(kInitialUnpacedBurst),
       lumpy_tokens_(0),
       alarm_granularity_(kAlarmGranularity),
-      pacing_limited_(false) {
-  if (GetQuicReloadableFlag(quic_donot_reset_ideal_next_packet_send_time)) {
-    QUIC_RELOADABLE_FLAG_COUNT(quic_donot_reset_ideal_next_packet_send_time);
-  }
-}
+      pacing_limited_(false) {}
 
 PacingSender::~PacingSender() {}
 
@@ -43,21 +39,21 @@ void PacingSender::OnCongestionEvent(bool rtt_updated,
                                      QuicByteCount bytes_in_flight,
                                      QuicTime event_time,
                                      const AckedPacketVector& acked_packets,
-                                     const LostPacketVector& lost_packets) {
+                                     const LostPacketVector& lost_packets,
+                                     QuicPacketCount num_ect,
+                                     QuicPacketCount num_ce) {
   QUICHE_DCHECK(sender_ != nullptr);
   if (!lost_packets.empty()) {
     // Clear any burst tokens when entering recovery.
     burst_tokens_ = 0;
   }
   sender_->OnCongestionEvent(rtt_updated, bytes_in_flight, event_time,
-                             acked_packets, lost_packets);
+                             acked_packets, lost_packets, num_ect, num_ce);
 }
 
 void PacingSender::OnPacketSent(
-    QuicTime sent_time,
-    QuicByteCount bytes_in_flight,
-    QuicPacketNumber packet_number,
-    QuicByteCount bytes,
+    QuicTime sent_time, QuicByteCount bytes_in_flight,
+    QuicPacketNumber packet_number, QuicByteCount bytes,
     HasRetransmittableData has_retransmittable_data) {
   QUICHE_DCHECK(sender_ != nullptr);
   sender_->OnPacketSent(sent_time, bytes_in_flight, packet_number, bytes,
@@ -76,9 +72,7 @@ void PacingSender::OnPacketSent(
   }
   if (burst_tokens_ > 0) {
     --burst_tokens_;
-    if (!GetQuicReloadableFlag(quic_donot_reset_ideal_next_packet_send_time)) {
-      ideal_next_packet_send_time_ = QuicTime::Zero();
-    }
+    ideal_next_packet_send_time_ = QuicTime::Zero();
     pacing_limited_ = false;
     return;
   }
@@ -90,22 +84,19 @@ void PacingSender::OnPacketSent(
     // Reset lumpy_tokens_ if either application or cwnd throttles sending or
     // token runs out.
     lumpy_tokens_ = std::max(
-        1u, std::min(static_cast<uint32_t>(
-                         GetQuicFlag(FLAGS_quic_lumpy_pacing_size)),
+        1u, std::min(static_cast<uint32_t>(GetQuicFlag(quic_lumpy_pacing_size)),
                      static_cast<uint32_t>(
                          (sender_->GetCongestionWindow() *
-                          GetQuicFlag(FLAGS_quic_lumpy_pacing_cwnd_fraction)) /
+                          GetQuicFlag(quic_lumpy_pacing_cwnd_fraction)) /
                          kDefaultTCPMSS)));
     if (sender_->BandwidthEstimate() <
         QuicBandwidth::FromKBitsPerSecond(
-            GetQuicFlag(FLAGS_quic_lumpy_pacing_min_bandwidth_kbps))) {
+            GetQuicFlag(quic_lumpy_pacing_min_bandwidth_kbps))) {
       // Below 1.2Mbps, send 1 packet at once, because one full-sized packet
       // is about 10ms of queueing.
       lumpy_tokens_ = 1u;
     }
-    if (GetQuicReloadableFlag(quic_fix_pacing_sender_bursts) &&
-        (bytes_in_flight + bytes) >= sender_->GetCongestionWindow()) {
-      QUIC_RELOADABLE_FLAG_COUNT(quic_fix_pacing_sender_bursts);
+    if ((bytes_in_flight + bytes) >= sender_->GetCongestionWindow()) {
       // Don't add lumpy_tokens if the congestion controller is CWND limited.
       lumpy_tokens_ = 1u;
     }
@@ -135,8 +126,7 @@ void PacingSender::SetBurstTokens(uint32_t burst_tokens) {
 }
 
 QuicTime::Delta PacingSender::TimeUntilSend(
-    QuicTime now,
-    QuicByteCount bytes_in_flight) const {
+    QuicTime now, QuicByteCount bytes_in_flight) const {
   QUICHE_DCHECK(sender_ != nullptr);
 
   if (!sender_->CanSend(bytes_in_flight)) {

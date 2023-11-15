@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 syntax = "proto3";
 
@@ -21,7 +20,6 @@ import "google/protobuf/struct.proto";
 import "google/spanner/v1/query_plan.proto";
 import "google/spanner/v1/transaction.proto";
 import "google/spanner/v1/type.proto";
-import "google/api/annotations.proto";
 
 option cc_enable_arenas = true;
 option csharp_namespace = "Google.Cloud.Spanner.V1";
@@ -30,6 +28,7 @@ option java_multiple_files = true;
 option java_outer_classname = "ResultSetProto";
 option java_package = "com.google.spanner.v1";
 option php_namespace = "Google\\Cloud\\Spanner\\V1";
+option ruby_package = "Google::Cloud::Spanner::V1";
 
 // Results from [Read][google.spanner.v1.Spanner.Read] or
 // [ExecuteSql][google.spanner.v1.Spanner.ExecuteSql].
@@ -175,6 +174,18 @@ message ResultSetMetadata {
   // If the read or SQL query began a transaction as a side-effect, the
   // information about the new transaction is yielded here.
   Transaction transaction = 2;
+
+  // A SQL query can be parameterized. In PLAN mode, these parameters can be
+  // undeclared. This indicates the field names and types for those undeclared
+  // parameters in the SQL query. For example, a SQL query like `"SELECT * FROM
+  // Users where UserId = @userId and UserName = @userName "` could return a
+  // `undeclared_parameters` value like:
+  //
+  //     "fields": [
+  //       { "name": "UserId", "type": { "code": "INT64" } },
+  //       { "name": "UserName", "type": { "code": "STRING" } },
+  //     ]
+  StructType undeclared_parameters = 3;
 }
 
 // Additional statistics about a [ResultSet][google.spanner.v1.ResultSet] or [PartialResultSet][google.spanner.v1.PartialResultSet].

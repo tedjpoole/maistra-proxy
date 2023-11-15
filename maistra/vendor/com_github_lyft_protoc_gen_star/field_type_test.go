@@ -3,9 +3,9 @@ package pgs
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestScalarT_Field(t *testing.T) {
@@ -304,9 +304,8 @@ func TestMapT_Key(t *testing.T) {
 
 type mockT struct {
 	FieldType
-	i   []File
-	f   Field
-	err error
+	i []File
+	f Field
 }
 
 func (t *mockT) Imports() []File { return t.i }

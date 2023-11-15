@@ -106,17 +106,14 @@ class QUIC_EXPORT_PRIVATE QuicStreamSequencerBuffer {
   // Called to buffer new data received for this stream.  If the data was
   // successfully buffered, returns QUIC_NO_ERROR and stores the number of
   // bytes buffered in |bytes_buffered|. Returns an error otherwise.
-  QuicErrorCode OnStreamData(QuicStreamOffset offset,
-                             absl::string_view data,
+  QuicErrorCode OnStreamData(QuicStreamOffset offset, absl::string_view data,
                              size_t* bytes_buffered,
                              std::string* error_details);
 
   // Reads from this buffer into given iovec array, up to number of iov_len
   // iovec objects and returns the number of bytes read.
-  QuicErrorCode Readv(const struct iovec* dest_iov,
-                      size_t dest_count,
-                      size_t* bytes_read,
-                      std::string* error_details);
+  QuicErrorCode Readv(const struct iovec* dest_iov, size_t dest_count,
+                      size_t* bytes_read, std::string* error_details);
 
   // Returns the readable region of valid data in iovec format. The readable
   // region is the buffer region where there is valid data not yet read by
@@ -162,15 +159,22 @@ class QUIC_EXPORT_PRIVATE QuicStreamSequencerBuffer {
   // Returns number of bytes available to be read out.
   size_t ReadableBytes() const;
 
+  // Returns offset of first missing byte.
+  QuicStreamOffset FirstMissingByte() const;
+
+  // Returns offset of highest received byte + 1.
+  QuicStreamOffset NextExpectedByte() const;
+
+  // Return all received frames as a string.
+  std::string ReceivedFramesDebugString() const;
+
  private:
   friend class test::QuicStreamSequencerBufferPeer;
 
   // Copies |data| to blocks_, sets |bytes_copy|. Returns true if the copy is
   // successful. Otherwise, sets |error_details| and returns false.
-  bool CopyStreamData(QuicStreamOffset offset,
-                      absl::string_view data,
-                      size_t* bytes_copy,
-                      std::string* error_details);
+  bool CopyStreamData(QuicStreamOffset offset, absl::string_view data,
+                      size_t* bytes_copy, std::string* error_details);
 
   // Dispose the given buffer block.
   // After calling this method, blocks_[index] is set to nullptr
@@ -202,15 +206,6 @@ class QUIC_EXPORT_PRIVATE QuicStreamSequencerBuffer {
 
   // Get the index of the logical 1st block to start next read.
   size_t NextBlockToRead() const;
-
-  // Returns offset of first missing byte.
-  QuicStreamOffset FirstMissingByte() const;
-
-  // Returns offset of highest received byte + 1.
-  QuicStreamOffset NextExpectedByte() const;
-
-  // Return all received frames as a string.
-  std::string ReceivedFramesDebugString() const;
 
   // Resize blocks_ if more blocks are needed to accomodate bytes before
   // next_expected_byte.

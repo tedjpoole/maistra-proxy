@@ -12,6 +12,7 @@ load("@com_google_googleapis_imports//:imports.bzl", "proto_library_with_info")
 proto_library(
     name = "datacatalog_proto",
     srcs = [
+        "common.proto",
         "datacatalog.proto",
         "gcs_fileset_spec.proto",
         "policytagmanager.proto",
@@ -68,14 +69,14 @@ java_grpc_library(
 
 java_gapic_library(
     name = "datacatalog_java_gapic",
-    src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
-    package = "google.cloud.datacatalog.v1beta1",
-    service_yaml = "datacatalog_v1beta1.yaml",
+    srcs = [":datacatalog_proto_with_info"],
+    grpc_service_config = "datacatalog_grpc_service_config.json",
+    rest_numeric_enums = False,
     test_deps = [
         ":datacatalog_java_grpc",
         "//google/iam/v1:iam_java_grpc",
     ],
+    transport = "grpc+rest",
     deps = [
         ":datacatalog_java_proto",
         "//google/iam/v1:iam_java_proto",
@@ -86,10 +87,11 @@ java_gapic_test(
     name = "datacatalog_java_gapic_test_suite",
     test_classes = [
         "com.google.cloud.datacatalog.v1beta1.DataCatalogClientTest",
-        # PolicyTagManager and PolicyTagManagerSerialization services
-        #       are missing in gapic yaml. Add them.
-        # "com.google.cloud.datacatalog.v1beta1.PolicyTagManagerClientTest",
-        # "com.google.cloud.datacatalog.v1beta1.PolicyTagManagerSerializationClientTest",
+        "com.google.cloud.datacatalog.v1beta1.DataCatalogClientHttpJsonTest",
+        "com.google.cloud.datacatalog.v1beta1.PolicyTagManagerClientTest",
+        "com.google.cloud.datacatalog.v1beta1.PolicyTagManagerClientHttpJsonTest",
+        "com.google.cloud.datacatalog.v1beta1.PolicyTagManagerSerializationClientTest",
+        "com.google.cloud.datacatalog.v1beta1.PolicyTagManagerSerializationClientHttpJsonTest",
     ],
     runtime_deps = [":datacatalog_java_gapic_test"],
 )
@@ -97,6 +99,7 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-datacatalog-v1beta1-java",
+    include_samples = True,
     deps = [
         ":datacatalog_java_gapic",
         ":datacatalog_java_grpc",
@@ -129,11 +132,12 @@ go_proto_library(
 
 go_gapic_library(
     name = "datacatalog_go_gapic",
-    src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
-    importpath = "cloud.google.com/go/datacatalog/apiv1beta1",
-    package = "google.cloud.datacatalog.v1beta1",
+    srcs = [":datacatalog_proto_with_info"],
+    grpc_service_config = "datacatalog_grpc_service_config.json",
+    importpath = "cloud.google.com/go/datacatalog/apiv1beta1;datacatalog",
+    rest_numeric_enums = False,
     service_yaml = "datacatalog_v1beta1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":datacatalog_go_proto",
         "//google/iam/v1:iam_go_proto",
@@ -152,7 +156,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-datacatalog-v1beta1-go",
     deps = [
         ":datacatalog_go_gapic",
-        ":datacatalog_go_gapic_srcjar-smoke-test.srcjar",
         ":datacatalog_go_gapic_srcjar-test.srcjar",
         ":datacatalog_go_proto",
     ],
@@ -163,51 +166,30 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "datacatalog_moved_proto",
-    srcs = [":datacatalog_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-        "//google/iam/v1:iam_policy_proto",
-        "//google/iam/v1:policy_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:timestamp_proto",
-    ],
-)
-
-py_proto_library(
-    name = "datacatalog_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":datacatalog_moved_proto"],
-)
-
-py_grpc_library(
-    name = "datacatalog_py_grpc",
-    srcs = [":datacatalog_moved_proto"],
-    deps = [":datacatalog_py_proto"],
+    "py_test",
 )
 
 py_gapic_library(
     name = "datacatalog_py_gapic",
-    src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
-    package = "google.cloud.datacatalog.v1beta1",
-    service_yaml = "datacatalog_v1beta1.yaml",
+    srcs = [":datacatalog_proto"],
+    grpc_service_config = "datacatalog_grpc_service_config.json",
+    rest_numeric_enums = False,
+    transport = "grpc",
     deps = [
-        ":datacatalog_py_grpc",
-        ":datacatalog_py_proto",
+        "//google/iam/v1:iam_policy_py_proto",
     ],
+)
+
+py_test(
+    name = "datacatalog_py_gapic_test",
+    srcs = [
+        "datacatalog_py_gapic_pytest.py",
+        "datacatalog_py_gapic_test.py",
+    ],
+    legacy_create_init = False,
+    deps = [":datacatalog_py_gapic"],
 )
 
 # Open Source Packages
@@ -215,8 +197,6 @@ py_gapic_assembly_pkg(
     name = "datacatalog-v1beta1-py",
     deps = [
         ":datacatalog_py_gapic",
-        ":datacatalog_py_grpc",
-        ":datacatalog_py_proto",
     ],
 )
 
@@ -244,10 +224,10 @@ php_grpc_library(
 
 php_gapic_library(
     name = "datacatalog_php_gapic",
-    src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
-    package = "google.cloud.datacatalog.v1beta1",
-    service_yaml = "datacatalog_v1beta1.yaml",
+    srcs = [":datacatalog_proto_with_info"],
+    grpc_service_config = "datacatalog_grpc_service_config.json",
+    rest_numeric_enums = False,
+    transport = "grpc+rest",
     deps = [
         ":datacatalog_php_grpc",
         ":datacatalog_php_proto",
@@ -275,10 +255,16 @@ load(
 
 nodejs_gapic_library(
     name = "datacatalog_nodejs_gapic",
+    package_name = "@google-cloud/datacatalog",
     src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "datacatalog_grpc_service_config.json",
+    main_service = "DataCatalog",
+    mixins = "none",
     package = "google.cloud.datacatalog.v1beta1",
+    rest_numeric_enums = False,
     service_yaml = "datacatalog_v1beta1.yaml",
+    transport = "grpc",
     deps = [],
 )
 
@@ -295,8 +281,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -312,12 +298,11 @@ ruby_grpc_library(
     deps = [":datacatalog_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "datacatalog_ruby_gapic",
-    src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
-    package = "google.cloud.datacatalog.v1beta1",
-    service_yaml = "datacatalog_v1beta1.yaml",
+    srcs = [":datacatalog_proto_with_info"],
+    extra_protoc_parameters = ["ruby-cloud-gem-name=google-cloud-datacatalog-v1beta1"],
+    rest_numeric_enums = False,
     deps = [
         ":datacatalog_ruby_grpc",
         ":datacatalog_ruby_proto",
@@ -358,9 +343,10 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "datacatalog_csharp_gapic",
-    src = ":datacatalog_proto_with_info",
-    gapic_yaml = "datacatalog_gapic.yaml",
-    package = "google.cloud.datacatalog.v1beta1",
+    srcs = [":datacatalog_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "datacatalog_grpc_service_config.json",
+    rest_numeric_enums = False,
     service_yaml = "datacatalog_v1beta1.yaml",
     deps = [
         ":datacatalog_csharp_grpc",

@@ -22,7 +22,7 @@ proto_library(
 proto_library_with_info(
     name = "common_proto_with_info",
     deps = [
-      ":common_proto",
+        ":common_proto",
     ],
 )
 
@@ -69,32 +69,21 @@ go_proto_library(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
-    "py_grpc_library",
+    "py_gapic_assembly_pkg",
+    "py_gapic_library",
     "py_proto_library",
 )
 
-moved_proto_library(
-    name = "common_moved_proto",
+py_gapic_library(
+    name = "common_py_gapic",
     srcs = [":common_proto"],
-    strip_import_prefix = "google/cloud/oslogin/common",
-    import_prefix = "google/cloud/oslogin/common",
-    deps = [
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-    ],
+    rest_numeric_enums = False,
+    transport = "grpc",
 )
 
 py_proto_library(
     name = "common_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":common_moved_proto"],
-)
-
-py_grpc_library(
-    name = "common_py_grpc",
-    srcs = [":common_moved_proto"],
-    deps = [":common_py_proto"],
+    deps = [":common_proto"],
 )
 
 ##############################################################################
@@ -126,7 +115,6 @@ load(
     "nodejs_gapic_library",
 )
 
-
 ##############################################################################
 # Ruby
 ##############################################################################
@@ -152,6 +140,8 @@ ruby_grpc_library(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "csharp_gapic_assembly_pkg",
+    "csharp_gapic_library",
     "csharp_grpc_library",
     "csharp_proto_library",
 )
@@ -167,7 +157,43 @@ csharp_grpc_library(
     deps = [":common_csharp_proto"],
 )
 
+csharp_gapic_library(
+    name = "common_csharp_gapic",
+    srcs = [":common_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    rest_numeric_enums = False,
+    deps = [
+        ":common_csharp_grpc",
+        ":common_csharp_proto",
+    ],
+)
+
+csharp_gapic_assembly_pkg(
+    name = "google-cloud-oslogin-common-csharp",
+    deps = [
+        ":common_csharp_gapic",
+        ":common_csharp_grpc",
+        ":common_csharp_proto",
+    ],
+)
+
 ##############################################################################
 # C++
 ##############################################################################
-# Put your C++ code here
+load(
+    "@com_google_googleapis_imports//:imports.bzl",
+    "cc_grpc_library",
+    "cc_proto_library",
+)
+
+cc_proto_library(
+    name = "common_cc_proto",
+    deps = [":common_proto"],
+)
+
+cc_grpc_library(
+    name = "common_cc_grpc",
+    srcs = [":common_proto"],
+    grpc_only = True,
+    deps = [":common_cc_proto"],
+)

@@ -30,6 +30,15 @@ def _archive(v):
         v.data.export_file.path if v.data.export_file else v.data.file.path,
     )
 
+def _embedroot_arg(src):
+    return src.root.path
+
+def _embedlookupdir_arg(src):
+    root_relative = src.dirname[len(src.root.path):]
+    if root_relative.startswith("/"):
+        root_relative = root_relative[len("/"):]
+    return root_relative
+
 def emit_compilepkg(
         go,
         sources = None,
@@ -50,7 +59,8 @@ def emit_compilepkg(
         out_export = None,
         out_cgo_export_h = None,
         gc_goopts = [],
-        testfilter = None):  # TODO: remove when test action compiles packages
+        testfilter = None,  # TODO: remove when test action compiles packages
+        recompile_internal_deps = []):
     """Compiles a complete Go package."""
     if sources == None:
         fail("sources is a required parameter")
@@ -66,6 +76,20 @@ def emit_compilepkg(
     args = go.builder_args(go, "compilepkg")
     args.add_all(sources, before_each = "-src")
     args.add_all(embedsrcs, before_each = "-embedsrc", expand_directories = False)
+    args.add_all(
+        sources + [out_lib] + embedsrcs,
+        map_each = _embedroot_arg,
+        before_each = "-embedroot",
+        uniquify = True,
+        expand_directories = False,
+    )
+    args.add_all(
+        sources + [out_lib],
+        map_each = _embedlookupdir_arg,
+        before_each = "-embedlookupdir",
+        uniquify = True,
+        expand_directories = False,
+    )
     if cover and go.coverdata:
         inputs.append(go.coverdata.data.export_file)
         args.add("-arc", _archive(go.coverdata))
@@ -73,10 +97,15 @@ def emit_compilepkg(
             args.add("-cover_mode", "atomic")
         else:
             args.add("-cover_mode", "set")
+        args.add("-cover_format", go.cover_format)
         args.add_all(cover, before_each = "-cover")
     args.add_all(archives, before_each = "-arc", map_each = _archive)
+    if recompile_internal_deps:
+        args.add_all(recompile_internal_deps, before_each = "-recompile_internal_deps")
     if importpath:
         args.add("-importpath", importpath)
+    else:
+        args.add("-importpath", go.label.name)
     if importmap:
         args.add("-p", importmap)
     args.add("-package_list", go.package_list)
@@ -91,8 +120,10 @@ def emit_compilepkg(
         outputs.append(out_cgo_export_h)
     if testfilter:
         args.add("-testfilter", testfilter)
+    args.add_all(go.sdk.experiments, before_each = "-experiment")
 
     gc_flags = list(gc_goopts)
+    gc_flags.extend(go.mode.gc_goopts)
     asm_flags = []
     if go.mode.race:
         gc_flags.append("-race")

@@ -1,5 +1,5 @@
 type: google.api.Service
-config_version: 1
+config_version: 3
 name: serviceconfig.googleapis.com
 title: Service Config API
 
@@ -15,9 +15,12 @@ types:
 - name: google.api.MonitoredResourceMetadata
 - name: google.api.ResourceDescriptor
 - name: google.api.ResourceReference
+- name: google.api.RoutingRule
 - name: google.api.Service
+- name: google.api.Visibility
 
 enums:
+- name: google.api.ErrorReason
 - name: google.api.FieldBehavior
 
 documentation:

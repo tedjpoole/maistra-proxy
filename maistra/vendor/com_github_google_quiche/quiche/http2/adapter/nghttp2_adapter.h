@@ -13,7 +13,7 @@
 namespace http2 {
 namespace adapter {
 
-class QUICHE_EXPORT_PRIVATE NgHttp2Adapter : public Http2Adapter {
+class QUICHE_EXPORT NgHttp2Adapter : public Http2Adapter {
  public:
   ~NgHttp2Adapter() override;
 
@@ -34,8 +34,7 @@ class QUICHE_EXPORT_PRIVATE NgHttp2Adapter : public Http2Adapter {
   int64_t ProcessBytes(absl::string_view bytes) override;
   void SubmitSettings(absl::Span<const Http2Setting> settings) override;
   void SubmitPriorityForStream(Http2StreamId stream_id,
-                               Http2StreamId parent_stream_id,
-                               int weight,
+                               Http2StreamId parent_stream_id, int weight,
                                bool exclusive) override;
 
   // Submits a PING on the connection. Note that nghttp2 automatically submits

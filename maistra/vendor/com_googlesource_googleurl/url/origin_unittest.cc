@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -69,7 +69,7 @@ class OriginTest : public ::testing::Test {
     return Origin::Nonce(nonce);
   }
 
-  absl::optional<gurl_base::UnguessableToken> GetNonce(const Origin& origin) {
+  const gurl_base::UnguessableToken* GetNonce(const Origin& origin) {
     return origin.GetNonceForSerialization();
   }
 
@@ -364,7 +364,7 @@ TEST_F(OriginTest, UnsafelyCreateUniqueOnInvalidInput) {
       << "UnsafelyCreateOpaqueOriginWithoutNormalization, so long as it is "
       << "the canonical form of the invalid tuple.";
   EXPECT_TRUE(anonymous_opaque->opaque());
-  EXPECT_EQ(GetNonce(anonymous_opaque.value()), token);
+  EXPECT_EQ(*GetNonce(anonymous_opaque.value()), token);
   EXPECT_EQ(anonymous_opaque->GetTupleOrPrecursorTupleIfOpaque(),
             url::SchemeHostPort());
 }

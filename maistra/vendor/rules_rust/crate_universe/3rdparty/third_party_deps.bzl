@@ -20,9 +20,9 @@ def third_party_deps():
         http_archive,
         name = "libgit2",
         build_file = Label("//crate_universe/3rdparty:BUILD.libgit2.bazel"),
-        sha256 = "9051e75964350054d5e3f9339bc4d1fb56ac14949710e3860f98f07a0433fa25",
+        sha256 = "d25866a4ee275a64f65be2d9a663680a5cf1ed87b7ee4c534997562c828e500d",
         # The version here should match the version used with the Rust crate `libgit2-sys`
-        # https://github.com/rust-lang/git2-rs/tree/libgit2-sys-0.13.0/libgit2-sys
-        strip_prefix = "libgit2-1.4.0",
-        urls = ["https://github.com/libgit2/libgit2/archive/refs/tags/v1.4.0.tar.gz"],
+        # https://github.com/rust-lang/git2-rs/tree/libgit2-sys-0.15.2+1.6.4/libgit2-sys
+        strip_prefix = "libgit2-1.6.4",
+        urls = ["https://github.com/libgit2/libgit2/archive/refs/tags/v1.6.4.tar.gz"],
     )

@@ -22,8 +22,11 @@ load(
     "asm_exts",
     "cgo_exts",
     "go_exts",
-    "pkg_dir",
     "split_srcs",
+)
+load(
+    "//go/private:go_toolchain.bzl",
+    "GO_TOOLCHAIN",
 )
 load(
     "//go/private/rules:binary.bzl",
@@ -39,7 +42,7 @@ load(
 )
 load(
     "//go/private/rules:transition.bzl",
-    "go_transition_rule",
+    "go_transition",
 )
 load(
     "//go/private:mode.bzl",
@@ -49,9 +52,6 @@ load(
     "@bazel_skylib//lib:structs.bzl",
     "structs",
 )
-
-def _testmain_library_to_source(go, attr, source, merge):
-    source["deps"] = source["deps"] + [attr.library]
 
 def _go_test_impl(ctx):
     """go_test_impl implements go testing.
@@ -82,16 +82,17 @@ def _go_test_impl(ctx):
     ), external_library, ctx.coverage_instrumented())
     external_source, internal_archive = _recompile_external_deps(go, external_source, internal_archive, [t.label for t in ctx.attr.embed])
     external_archive = go.archive(go, external_source)
-    external_srcs = split_srcs(external_source.srcs).go
 
     # now generate the main function
-    if ctx.attr.rundir:
-        if ctx.attr.rundir.startswith("/"):
-            run_dir = ctx.attr.rundir
-        else:
-            run_dir = pkg_dir(ctx.label.workspace_root, ctx.attr.rundir)
+    repo_relative_rundir = ctx.attr.rundir or ctx.label.package or "."
+    if ctx.label.workspace_name:
+        # The test is contained in an external repository (Label.workspace_name is always the empty
+        # string for the main repository, which is the canonical repository name of this repo).
+        # The test runner cd's into the directory corresponding to the main repository, so walk up
+        # and then down.
+        run_dir = "../" + ctx.label.workspace_name + "/" + repo_relative_rundir
     else:
-        run_dir = pkg_dir(ctx.label.workspace_root, ctx.label.package)
+        run_dir = repo_relative_rundir
 
     main_go = go.declare_file(go, path = "testmain.go")
     arguments = go.builder_args(go, "gentestmain")
@@ -101,6 +102,7 @@ def _go_test_impl(ctx):
             arguments.add("-cover_mode", "atomic")
         else:
             arguments.add("-cover_mode", "set")
+        arguments.add("-cover_format", go.cover_format)
     arguments.add(
         # the l is the alias for the package under test, the l_test must be the
         # same with the test suffix
@@ -161,6 +163,8 @@ def _go_test_impl(ctx):
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_location(v, ctx.attr.data)
 
+    run_environment_info = RunEnvironmentInfo(env, ctx.attr.env_inherit)
+
     # Bazel only looks for coverage data if the test target has an
     # InstrumentedFilesProvider. If the provider is found and at least one
     # source file is present, Bazel will set the COVERAGE_OUTPUT_FILE
@@ -179,10 +183,10 @@ def _go_test_impl(ctx):
         coverage_common.instrumented_files_info(
             ctx,
             source_attributes = ["srcs"],
-            dependency_attributes = ["deps", "embed"],
+            dependency_attributes = ["data", "deps", "embed", "embedsrcs"],
             extensions = ["go"],
         ),
-        testing.TestEnvironment(env),
+        run_environment_info,
     ]
 
 _go_test_kwargs = {
@@ -212,6 +216,7 @@ _go_test_kwargs = {
             doc = """List of Go libraries this test imports directly.
             These may be go_library rules or compatible rules with the [GoLibrary] provider.
             """,
+            cfg = go_transition,
         ),
         "embed": attr.label_list(
             providers = [GoLibrary],
@@ -223,6 +228,7 @@ _go_test_kwargs = {
             and the embedding library may not also have `cgo = True`. See [Embedding]
             for more information.
             """,
+            cfg = go_transition,
         ),
         "embedsrcs": attr.label_list(
             allow_files = True,
@@ -238,6 +244,10 @@ _go_test_kwargs = {
             The values (but not keys) are subject to
             [location expansion](https://docs.bazel.build/versions/main/skylark/macros.html) but not full
             [make variable expansion](https://docs.bazel.build/versions/main/be/make-variables.html).
+            """,
+        ),
+        "env_inherit": attr.string_list(
+            doc = """Environment variables to inherit from the external environment.
             """,
         ),
         "importpath": attr.string(
@@ -258,14 +268,22 @@ _go_test_kwargs = {
         ),
         "rundir": attr.string(
             doc = """ A directory to cd to before the test is run.
-            This should be a path relative to the execution dir of the test.
+            This should be a path relative to the root directory of the
+            repository in which the test is defined, which can be the main or an
+            external repository.
 
-            The default behaviour is to change to the workspace relative path, this replicates the normal
+            The default behaviour is to change to the relative path
+            corresponding to the test's package, which replicates the normal
             behaviour of `go test` so it is easy to write compatible tests.
 
-            Setting it to `.` makes the test behave the normal way for a bazel test.
+            Setting it to `.` makes the test behave the normal way for a bazel
+            test, except that the working directory is always that of the test's
+            repository, which is not necessarily the main repository.
 
-            ***Note:*** This defaults to the package path.
+            Note: If runfile symlinks are disabled (such as on Windows by
+            default), the test will run in the working directory set by Bazel,
+            which is the subdirectory of the runfiles directory corresponding to
+            the main repository.
             """,
         ),
         "x_defs": attr.string_dict(
@@ -392,21 +410,35 @@ _go_test_kwargs = {
             See [Cross compilation] for more information.
             """,
         ),
-        "_go_context_data": attr.label(default = "//:go_context_data"),
+        "_go_context_data": attr.label(default = "//:go_context_data", cfg = go_transition),
         "_testmain_additional_deps": attr.label_list(
             providers = [GoLibrary],
             default = ["//go/tools/bzltestutil"],
+            cfg = go_transition,
         ),
-        # Workaround for bazelbuild/bazel#6293. See comment in lcov_merger.sh.
+        # Required for Bazel to collect coverage of instrumented C/C++ binaries
+        # executed by go_test.
+        # This is just a shell script and thus cheap enough to depend on
+        # unconditionally.
+        "_collect_cc_coverage": attr.label(
+            default = "@bazel_tools//tools/test:collect_cc_coverage",
+            cfg = "exec",
+        ),
+        # Required for Bazel to merge coverage reports for Go and other
+        # languages into a single report per test.
+        # Using configuration_field ensures that the tool is only built when
+        # run with bazel coverage, not with bazel test.
         "_lcov_merger": attr.label(
-            executable = True,
-            default = "//go/tools/builders:lcov_merger",
-            cfg = "target",
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = "exec",
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
     "executable": True,
     "test": True,
-    "toolchains": ["@io_bazel_rules_go//go:toolchain"],
+    "toolchains": [GO_TOOLCHAIN],
     "doc": """This builds a set of tests that can be run with `bazel test`.<br><br>
     To run all tests in the workspace, and print output on failure (the
     equivalent of `go test ./...`), run<br>
@@ -440,7 +472,6 @@ _go_test_kwargs = {
 }
 
 go_test = rule(**_go_test_kwargs)
-go_transition_test = go_transition_rule(**_go_test_kwargs)
 
 def _recompile_external_deps(go, external_source, internal_archive, library_labels):
     """Recompiles some archives in order to split internal and external tests.
@@ -507,13 +538,10 @@ def _recompile_external_deps(go, external_source, internal_archive, library_labe
     # deps_pushed tracks the status of each target.
     # DEPS_UNPROCESSED means the target is on the stack, but its dependencies
     # are not.
-    # ON_DEP_LIST means the target and its dependencies have been added to
-    # dep_list.
     # Non-negative integers are the number of dependencies on the stack that
     # still need to be processed.
     # A target is on the stack if its status is DEPS_UNPROCESSED or 0.
     DEPS_UNPROCESSED = -1
-    ON_DEP_LIST = -2
     deps_pushed = {l: DEPS_UNPROCESSED for l in stack}
 
     # dependents maps labels to lists of known dependents. When a target is
@@ -578,11 +606,26 @@ def _recompile_external_deps(go, external_source, internal_archive, library_labe
     # is shared between the internal and external archive. The internal archive
     # can't import anything that imports itself.
     internal_source = internal_archive.source
-    internal_deps = [dep for dep in internal_source.deps if not need_recompile[get_archive(dep).data.label]]
+
+    internal_deps = []
+
+    # Pass internal dependencies that need to be recompiled down to the builder to check if the internal archive
+    # tries to import any of the dependencies. If there is, that means that there is a dependency cycle.
+    need_recompile_deps = []
+    for dep in internal_source.deps:
+        dep_data = get_archive(dep).data
+        if not need_recompile[dep_data.label]:
+            internal_deps.append(dep)
+        else:
+            need_recompile_deps.append(dep_data.importpath)
+
+    x_defs = dict(internal_source.x_defs)
+    x_defs.update(internal_archive.x_defs)
     attrs = structs.to_dict(internal_source)
     attrs["deps"] = internal_deps
+    attrs["x_defs"] = x_defs
     internal_source = GoSource(**attrs)
-    internal_archive = go.archive(go, internal_source, _recompile_suffix = ".recompileinternal")
+    internal_archive = go.archive(go, internal_source, _recompile_suffix = ".recompileinternal", recompile_internal_deps = need_recompile_deps)
 
     # Build a map from labels to possibly recompiled GoArchives.
     label_to_archive = {}

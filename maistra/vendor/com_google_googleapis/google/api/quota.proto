@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 syntax = "proto3";
 
@@ -45,10 +44,10 @@ option objc_class_prefix = "GAPI";
 //          STANDARD: 10000
 //
 //
-//      # The metric rules bind all methods to the read_calls metric,
-//      # except for the UpdateBook and DeleteBook methods. These two methods
-//      # are mapped to the write_calls metric, with the UpdateBook method
-//      # consuming at twice rate as the DeleteBook method.
+//      (The metric rules bind all methods to the read_calls metric,
+//       except for the UpdateBook and DeleteBook methods. These two methods
+//       are mapped to the write_calls metric, with the UpdateBook method
+//       consuming at twice rate as the DeleteBook method.)
 //      metric_rules:
 //      - selector: "*"
 //        metric_costs:
@@ -75,10 +74,10 @@ option objc_class_prefix = "GAPI";
 //
 //
 message Quota {
-  // List of `QuotaLimit` definitions for the service.
+  // List of QuotaLimit definitions for the service.
   repeated QuotaLimit limits = 3;
 
-  // List of `MetricRule` definitions, each one mapping a selected method to one
+  // List of MetricRule definitions, each one mapping a selected method to one
   // or more metrics.
   repeated MetricRule metric_rules = 4;
 }
@@ -150,10 +149,7 @@ message QuotaLimit {
   // Used by group-based quotas only.
   int64 free_tier = 7;
 
-  // Duration of this limit in textual notation. Example: "100s", "24h", "1d".
-  // For duration longer than a day, only multiple of days is supported. We
-  // support only "100s" and "1d" for now. Additional support will be added in
-  // the future. "0" indicates indefinite duration.
+  // Duration of this limit in textual notation. Must be "100s" or "1d".
   //
   // Used by group-based quotas only.
   string duration = 5;

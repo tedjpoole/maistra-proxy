@@ -47,10 +47,17 @@ class OutputFileMap {
     return incremental_inputs_;
   }
 
+  // A list of output files that will be generated in the incremental storage
+  // area, and need to be cleaned up if a corrupt module is detected.
+  const std::vector<std::string> incremental_cleanup_outputs() const {
+    return incremental_cleanup_outputs_;
+  }
+
   // Reads the output file map from the JSON file at the given path, and updates
   // it to support incremental builds.
   void ReadFromPath(const std::string &path,
-                    const std::string &emit_module_path);
+                    const std::string &emit_module_path,
+                    const std::string &emit_objc_header_path);
 
   // Writes the output file map as JSON to the file at the given path.
   void WriteToPath(const std::string &path);
@@ -59,11 +66,13 @@ class OutputFileMap {
   // Modifies the output file map's JSON structure in-place to replace file
   // paths with equivalents in the incremental storage area.
   void UpdateForIncremental(const std::string &path,
-                            const std::string &emit_module_path);
+                            const std::string &emit_module_path,
+                            const std::string &emit_objc_header_path);
 
   nlohmann::json json_;
   std::map<std::string, std::string> incremental_outputs_;
   std::map<std::string, std::string> incremental_inputs_;
+  std::vector<std::string> incremental_cleanup_outputs_;
 };
 
 #endif  // BUILD_BAZEL_RULES_SWIFT_TOOLS_WORKER_OUTPUT_FILE_MAP_H_

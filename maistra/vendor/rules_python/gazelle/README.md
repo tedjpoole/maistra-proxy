@@ -4,6 +4,8 @@ This directory contains a plugin for
 [Gazelle](https://github.com/bazelbuild/bazel-gazelle)
 that generates BUILD file content for Python code.
 
+It requires Go 1.16+ to compile.
+
 ## Installation
 
 First, you'll need to add Gazelle to your `WORKSPACE` file.
@@ -15,9 +17,17 @@ depends on.
 Add this to your `WORKSPACE`:
 
 ```starlark
+http_archive(
+    name = "rules_python_gazelle_plugin",
+    sha256 = "",
+    strip_prefix = "rules_python-0.17.0/gazelle",
+    url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.17.0.tar.gz",
+)
+
 # To compile the rules_python gazelle extension from source,
 # we must fetch some third-party go dependencies that it uses.
-load("@rules_python//gazelle:deps.bzl", _py_gazelle_deps = "gazelle_deps")
+
+load("@rules_python_gazelle_plugin//:deps.bzl", _py_gazelle_deps = "gazelle_deps")
 
 _py_gazelle_deps()
 ```
@@ -29,15 +39,17 @@ by the `modules_mapping` rule. We'll make a target for consuming this
 This is checked into the repo for speed, as it takes some time to calculate
 in a large monorepo.
 
-Create a file `gazelle_python.yaml` next to your `requirements.txt`
-file. (You can just use `touch` at this point, it just needs to exist.)
+Gazelle will walk up the filesystem from a Python file to find this metadata,
+looking for a file called `gazelle_python.yaml` in an ancestor folder of the Python code.
+Create an empty file with this name. It might be next to your `requirements.txt` file.
+(You can just use `touch` at this point, it just needs to exist.)
 
-Then put this in your `BUILD.bazel` file next to the `requirements.txt`:
+To keep the metadata updated, put this in your `BUILD.bazel` file next to `gazelle_python.yaml`:
 
 ```starlark
 load("@pip//:requirements.bzl", "all_whl_requirements")
-load("@rules_python//gazelle/manifest:defs.bzl", "gazelle_python_manifest")
-load("@rules_python//gazelle/modules_mapping:def.bzl", "modules_mapping")
+load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
+load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
 
 # This rule fetches the metadata for python packages we depend on. That data is
 # required for the gazelle_python_manifest rule to update our manifest file.
@@ -59,8 +71,6 @@ gazelle_python_manifest(
     # This is what we called our `pip_install` rule, where third-party
     # python libraries are loaded in BUILD files.
     pip_repository_name = "pip",
-    # When using pip_parse instead of pip_install, set the following.
-    # pip_repository_incremental = True,
     # This should point to wherever we declare our python dependencies
     # (the same as what we passed to the modules_mapping rule in WORKSPACE)
     requirements = "//:requirements_lock.txt",
@@ -73,7 +83,7 @@ with the rules_python extension included. This typically goes in your root
 
 ```
 load("@bazel_gazelle//:def.bzl", "gazelle")
-load("@rules_python//gazelle:def.bzl", "GAZELLE_PYTHON_RUNTIME_DEPS")
+load("@rules_python_gazelle_plugin//:def.bzl", "GAZELLE_PYTHON_RUNTIME_DEPS")
 
 # Our gazelle target points to the python gazelle binary.
 # This is the simple case where we only need one language supported.
@@ -83,14 +93,14 @@ load("@rules_python//gazelle:def.bzl", "GAZELLE_PYTHON_RUNTIME_DEPS")
 gazelle(
     name = "gazelle",
     data = GAZELLE_PYTHON_RUNTIME_DEPS,
-    gazelle = "@rules_python//gazelle:gazelle_python_binary",
+    gazelle = "@rules_python_gazelle_plugin//python:gazelle_binary",
 )
 ```
 
 That's it, now you can finally run `bazel run //:gazelle` anytime
 you edit Python code, and it should update your `BUILD` files correctly.
 
-A fully-working example is in [`examples/build_file_generation`](examples/build_file_generation).
+A fully-working example is in [`examples/build_file_generation`](../examples/build_file_generation).
 
 ## Usage
 

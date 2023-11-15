@@ -1,3 +1,17 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package pythonconfig
 
 import (
@@ -207,15 +221,9 @@ func (c *Config) FindThirdPartyDependency(modName string) (string, bool) {
 				sanitizedDistribution := strings.ToLower(distributionName)
 				sanitizedDistribution = strings.ReplaceAll(sanitizedDistribution, "-", "_")
 				var lbl label.Label
-				if gazelleManifest.PipRepository != nil && gazelleManifest.PipRepository.Incremental {
-					// @<repository_name>_<distribution_name>//:pkg
-					distributionRepositoryName = distributionRepositoryName + "_" + sanitizedDistribution
-					lbl = label.New(distributionRepositoryName, "", "pkg")
-				} else {
-					// @<repository_name>//pypi__<distribution_name>
-					distributionPackage := "pypi__" + sanitizedDistribution
-					lbl = label.New(distributionRepositoryName, distributionPackage, distributionPackage)
-				}
+				// @<repository_name>_<distribution_name>//:pkg
+				distributionRepositoryName = distributionRepositoryName + "_" + sanitizedDistribution
+				lbl = label.New(distributionRepositoryName, "", "pkg")
 				return lbl.String(), true
 			}
 		}

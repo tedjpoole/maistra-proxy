@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 #include <type_traits>
 
 #include "polyfills/base/base_export.h"
-#include "base/cxx17_backports.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
@@ -70,6 +69,7 @@ enum class CrashKeySize {
   Size32 = 32,
   Size64 = 64,
   Size256 = 256,
+  Size1024 = 1024,
 };
 
 struct CrashKeyString;
@@ -125,7 +125,7 @@ class BASE_EXPORT ScopedCrashKeyString {
 // that restricts the name of a crash key to 40 characters.
 #define SCOPED_CRASH_KEY_STRING_INTERNAL2(category, name, nonce, data,  \
                                           key_size)                     \
-  static_assert(::gurl_base::size(category "-" name) < 40,                   \
+  static_assert(::std::size(category "-" name) < 40,                    \
                 "Crash key names must be shorter than 40 characters."); \
   ::gurl_base::debug::ScopedCrashKeyString scoped_crash_key_helper##nonce(   \
       [] {                                                              \
@@ -159,6 +159,10 @@ class BASE_EXPORT ScopedCrashKeyString {
 #define SCOPED_CRASH_KEY_STRING256(category, name, data)                \
   SCOPED_CRASH_KEY_STRING_INTERNAL(category, name, __COUNTER__, (data), \
                                    ::gurl_base::debug::CrashKeySize::Size256)
+
+#define SCOPED_CRASH_KEY_STRING1024(category, name, data)               \
+  SCOPED_CRASH_KEY_STRING_INTERNAL(category, name, __COUNTER__, (data), \
+                                   ::gurl_base::debug::CrashKeySize::Size1024)
 
 #define SCOPED_CRASH_KEY_BOOL(category, name, data)                       \
   static_assert(std::is_same<std::decay_t<decltype(data)>, bool>::value,  \

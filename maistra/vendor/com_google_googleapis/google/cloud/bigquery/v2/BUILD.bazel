@@ -16,6 +16,7 @@ proto_library(
         "model.proto",
         "model_reference.proto",
         "standard_sql.proto",
+        "table_reference.proto",
     ],
     deps = [
         "//google/api:annotations_proto",
@@ -60,13 +61,13 @@ java_grpc_library(
 
 java_gapic_library(
     name = "bigquery_java_gapic",
-    src = ":bigquery_proto_with_info",
-    gapic_yaml = "bigquery_gapic.yaml",
-    package = "google.cloud.bigquery.v2",
-    service_yaml = "bigquery_v2.yaml",
+    srcs = [":bigquery_proto_with_info"],
+    grpc_service_config = "bigquery_grpc_service_config.json",
+    rest_numeric_enums = False,
     test_deps = [
         ":bigquery_java_grpc",
     ],
+    transport = "grpc+rest",
     deps = [
         ":bigquery_java_proto",
     ],
@@ -75,6 +76,7 @@ java_gapic_library(
 java_gapic_test(
     name = "bigquery_java_gapic_test_suite",
     test_classes = [
+        "com.google.cloud.bigquery.v2.ModelServiceClientHttpJsonTest",
         "com.google.cloud.bigquery.v2.ModelServiceClientTest",
     ],
     runtime_deps = [":bigquery_java_gapic_test"],
@@ -83,6 +85,8 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-bigquery-v2-java",
+    include_samples = True,
+    transport = "grpc+rest",
     deps = [
         ":bigquery_java_gapic",
         ":bigquery_java_grpc",
@@ -114,11 +118,12 @@ go_proto_library(
 
 go_gapic_library(
     name = "bigquery_go_gapic",
-    src = ":bigquery_proto_with_info",
-    gapic_yaml = "bigquery_gapic.yaml",
-    importpath = "cloud.google.com/go/bigquery/apiv2",
-    package = "google.cloud.bigquery.v2",
+    srcs = [":bigquery_proto_with_info"],
+    grpc_service_config = "bigquery_grpc_service_config.json",
+    importpath = "cloud.google.com/go/bigquery/apiv2;bigquery",
+    rest_numeric_enums = False,
     service_yaml = "bigquery_v2.yaml",
+    transport = "grpc",
     deps = [
         ":bigquery_go_proto",
     ],
@@ -136,7 +141,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-bigquery-v2-go",
     deps = [
         ":bigquery_go_gapic",
-        ":bigquery_go_gapic_srcjar-smoke-test.srcjar",
         ":bigquery_go_gapic_srcjar-test.srcjar",
         ":bigquery_go_proto",
     ],
@@ -147,57 +151,33 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "bigquery_moved_proto",
-    srcs = [":bigquery_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
-    ],
-)
-
-py_proto_library(
-    name = "bigquery_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":bigquery_moved_proto"],
-)
-
-py_grpc_library(
-    name = "bigquery_py_grpc",
-    srcs = [":bigquery_moved_proto"],
-    deps = [":bigquery_py_proto"],
 )
 
 py_gapic_library(
     name = "bigquery_py_gapic",
-    src = ":bigquery_proto_with_info",
-    gapic_yaml = "bigquery_gapic.yaml",
-    package = "google.cloud.bigquery.v2",
-    service_yaml = "bigquery_v2.yaml",
-    deps = [
-        ":bigquery_py_grpc",
-        ":bigquery_py_proto",
-    ],
+    srcs = [":bigquery_proto"],
+    grpc_service_config = "bigquery_grpc_service_config.json",
+    opt_args = ["autogen-snippets=False"],
+    rest_numeric_enums = False,
+    transport = "grpc",
 )
 
-# Open Source Packages
+py_test(
+    name = "bigquery_py_gapic_test",
+    srcs = [
+        "bigquery_py_gapic_pytest.py",
+        "bigquery_py_gapic_test.py",
+    ],
+    legacy_create_init = False,
+    deps = [":bigquery_py_gapic"],
+)
+
 py_gapic_assembly_pkg(
     name = "bigquery-v2-py",
     deps = [
         ":bigquery_py_gapic",
-        ":bigquery_py_grpc",
-        ":bigquery_py_proto",
     ],
 )
 
@@ -258,9 +238,12 @@ load(
 nodejs_gapic_library(
     name = "bigquery_nodejs_gapic",
     src = ":bigquery_proto_with_info",
-    gapic_yaml = "bigquery_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "bigquery_grpc_service_config.json",
     package = "google.cloud.bigquery.v2",
+    rest_numeric_enums = False,
     service_yaml = "bigquery_v2.yaml",
+    transport = "grpc",
     deps = [],
 )
 
@@ -277,8 +260,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -294,12 +277,11 @@ ruby_grpc_library(
     deps = [":bigquery_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "bigquery_ruby_gapic",
-    src = ":bigquery_proto_with_info",
-    gapic_yaml = "bigquery_gapic.yaml",
-    package = "google.cloud.bigquery.v2",
-    service_yaml = "bigquery_v2.yaml",
+    srcs = [":bigquery_proto_with_info"],
+    extra_protoc_parameters = ["ruby-cloud-gem-name=google-cloud-bigquery-v2"],
+    rest_numeric_enums = False,
     deps = [
         ":bigquery_ruby_grpc",
         ":bigquery_ruby_proto",
@@ -340,9 +322,10 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "bigquery_csharp_gapic",
-    src = ":bigquery_proto_with_info",
-    gapic_yaml = "bigquery_gapic.yaml",
-    package = "google.cloud.bigquery.v2",
+    srcs = [":bigquery_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "bigquery_grpc_service_config.json",
+    rest_numeric_enums = False,
     service_yaml = "bigquery_v2.yaml",
     deps = [
         ":bigquery_csharp_grpc",
@@ -363,4 +346,20 @@ csharp_gapic_assembly_pkg(
 ##############################################################################
 # C++
 ##############################################################################
-# Put your C++ rules here
+load(
+    "@com_google_googleapis_imports//:imports.bzl",
+    "cc_grpc_library",
+    "cc_proto_library",
+)
+
+cc_proto_library(
+    name = "bigquery_cc_proto",
+    deps = [":bigquery_proto"],
+)
+
+cc_grpc_library(
+    name = "bigquery_cc_grpc",
+    srcs = [":bigquery_proto"],
+    grpc_only = True,
+    deps = [":bigquery_cc_proto"],
+)

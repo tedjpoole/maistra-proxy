@@ -12,18 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# buildifier: disable=module-docstring
-load("//rust:defs.bzl", "rust_common")
+"""Bazel rules for [wasm-bindgen](https://crates.io/crates/wasm-bindgen)"""
 
-# buildifier: disable=bzl-visibility
-load("//rust/private:transitions.bzl", "wasm_bindgen_transition")
+load("//rust:defs.bzl", "rust_common")
 load(
     "//wasm_bindgen:providers.bzl",
     "DeclarationInfo",
-    "JSEcmaScriptModuleInfo",
     "JSModuleInfo",
-    "JSNamedModuleInfo",
 )
+load("//wasm_bindgen/private:transitions.bzl", "wasm_bindgen_transition")
 
 _WASM_BINDGEN_DOC = """\
 Generates javascript and typescript bindings for a webassembly module using [wasm-bindgen][ws].
@@ -54,13 +51,13 @@ a unique toolchain can be created as in the example below:
 load("@rules_rust//bindgen:bindgen.bzl", "rust_bindgen_toolchain")
 
 rust_bindgen_toolchain(
-    bindgen = "//my/cargo_raze:cargo_bin_wasm_bindgen",
+    bindgen = "//3rdparty/crates:wasm_bindgen_cli__bin",
 )
 
 toolchain(
     name = "wasm_bindgen_toolchain",
     toolchain = "wasm_bindgen_toolchain_impl",
-    toolchain_type = "@rules_rust//wasm_bindgen:wasm_bindgen_toolchain",
+    toolchain_type = "@rules_rust//wasm_bindgen:toolchain_type",
 )
 ```
 
@@ -131,7 +128,6 @@ def _rust_wasm_bindgen_impl(ctx):
     # Return a structure that is compatible with the deps[] of a ts_library.
     declarations = depset(ts_out)
     es5_sources = depset(js_out)
-    es6_sources = depset(js_out)
 
     return [
         DefaultInfo(
@@ -145,14 +141,6 @@ def _rust_wasm_bindgen_impl(ctx):
         JSModuleInfo(
             direct_sources = es5_sources,
             sources = es5_sources,
-        ),
-        JSNamedModuleInfo(
-            direct_sources = es5_sources,
-            sources = es5_sources,
-        ),
-        JSEcmaScriptModuleInfo(
-            direct_sources = es6_sources,
-            sources = es6_sources,
         ),
     ]
 

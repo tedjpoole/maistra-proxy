@@ -12,7 +12,7 @@
 namespace http2 {
 namespace adapter {
 
-class QUICHE_EXPORT_PRIVATE OgHttp2Adapter : public Http2Adapter {
+class QUICHE_EXPORT OgHttp2Adapter : public Http2Adapter {
  public:
   using Options = OgHttp2Session::Options;
   static std::unique_ptr<OgHttp2Adapter> Create(Http2VisitorInterface& visitor,
@@ -27,8 +27,7 @@ class QUICHE_EXPORT_PRIVATE OgHttp2Adapter : public Http2Adapter {
   int64_t ProcessBytes(absl::string_view bytes) override;
   void SubmitSettings(absl::Span<const Http2Setting> settings) override;
   void SubmitPriorityForStream(Http2StreamId stream_id,
-                               Http2StreamId parent_stream_id,
-                               int weight,
+                               Http2StreamId parent_stream_id, int weight,
                                bool exclusive) override;
   void SubmitPing(Http2PingId ping_id) override;
   void SubmitShutdownNotice() override;

@@ -1,6 +1,33 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#py_import"></a>
+
+Core rules for building Python projects.
+
+
+<a id="current_py_toolchain"></a>
+
+## current_py_toolchain
+
+<pre>
+current_py_toolchain(<a href="#current_py_toolchain-name">name</a>)
+</pre>
+
+
+    This rule exists so that the current python toolchain can be used in the `toolchains` attribute of
+    other rules, such as genrule. It allows exposing a python toolchain after toolchain resolution has
+    happened, to a rule which expects a concrete implementation of a toolchain, rather than a
+    toolchain_type which could be resolved to that toolchain.
+    
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="current_py_toolchain-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+
+
+<a id="py_import"></a>
 
 ## py_import
 
@@ -22,91 +49,13 @@ This rule allows the use of Python packages as dependencies.
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| deps |  The list of other libraries to be linked in to the binary target.   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
-| srcs |  The list of Python package files provided to Python targets that depend on this target. Note that currently only the .egg format is accepted. For .whl files, try the whl_library rule. We accept contributions to extend py_import to handle .whl.   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_import-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_import-deps"></a>deps |  The list of other libraries to be linked in to the binary target.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="py_import-srcs"></a>srcs |  The list of Python package files provided to Python targets that depend on this target. Note that currently only the .egg format is accepted. For .whl files, try the whl_library rule. We accept contributions to extend py_import to handle .whl.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
 
 
-<a name="#py_runtime_pair"></a>
-
-## py_runtime_pair
-
-<pre>
-py_runtime_pair(<a href="#py_runtime_pair-name">name</a>, <a href="#py_runtime_pair-py2_runtime">py2_runtime</a>, <a href="#py_runtime_pair-py3_runtime">py3_runtime</a>)
-</pre>
-
-A toolchain rule for Python.
-
-This wraps up to two Python runtimes, one for Python 2 and one for Python 3.
-The rule consuming this toolchain will choose which runtime is appropriate.
-Either runtime may be omitted, in which case the resulting toolchain will be
-unusable for building Python code using that version.
-
-Usually the wrapped runtimes are declared using the `py_runtime` rule, but any
-rule returning a `PyRuntimeInfo` provider may be used.
-
-This rule returns a `platform_common.ToolchainInfo` provider with the following
-schema:
-
-```python
-platform_common.ToolchainInfo(
-    py2_runtime = <PyRuntimeInfo or None>,
-    py3_runtime = <PyRuntimeInfo or None>,
-)
-```
-
-Example usage:
-
-```python
-# In your BUILD file...
-
-load("@rules_python//python:defs.bzl", "py_runtime_pair")
-
-py_runtime(
-    name = "my_py2_runtime",
-    interpreter_path = "/system/python2",
-    python_version = "PY2",
-)
-
-py_runtime(
-    name = "my_py3_runtime",
-    interpreter_path = "/system/python3",
-    python_version = "PY3",
-)
-
-py_runtime_pair(
-    name = "my_py_runtime_pair",
-    py2_runtime = ":my_py2_runtime",
-    py3_runtime = ":my_py3_runtime",
-)
-
-toolchain(
-    name = "my_toolchain",
-    target_compatible_with = <...>,
-    toolchain = ":my_py_runtime_pair",
-    toolchain_type = "@rules_python//python:toolchain_type",
-)
-```
-
-```python
-# In your WORKSPACE...
-
-register_toolchains("//my_pkg:my_toolchain")
-```
-
-
-**ATTRIBUTES**
-
-
-| Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| py2_runtime |  The runtime to use for Python 2 targets. Must have <code>python_version</code> set to <code>PY2</code>.   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
-| py3_runtime |  The runtime to use for Python 3 targets. Must have <code>python_version</code> set to <code>PY3</code>.   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
-
-
-<a name="#py_binary"></a>
+<a id="py_binary"></a>
 
 ## py_binary
 
@@ -120,11 +69,11 @@ See the Bazel core [py_binary](https://docs.bazel.build/versions/master/be/pytho
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| attrs |  Rule attributes   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="py_binary-attrs"></a>attrs |  Rule attributes   |  none |
 
 
-<a name="#py_library"></a>
+<a id="py_library"></a>
 
 ## py_library
 
@@ -138,11 +87,11 @@ See the Bazel core [py_library](https://docs.bazel.build/versions/master/be/pyth
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| attrs |  Rule attributes   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="py_library-attrs"></a>attrs |  Rule attributes   |  none |
 
 
-<a name="#py_runtime"></a>
+<a id="py_runtime"></a>
 
 ## py_runtime
 
@@ -156,11 +105,82 @@ See the Bazel core [py_runtime](https://docs.bazel.build/versions/master/be/pyth
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| attrs |  Rule attributes   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="py_runtime-attrs"></a>attrs |  Rule attributes   |  none |
 
 
-<a name="#py_test"></a>
+<a id="py_runtime_pair"></a>
+
+## py_runtime_pair
+
+<pre>
+py_runtime_pair(<a href="#py_runtime_pair-name">name</a>, <a href="#py_runtime_pair-py2_runtime">py2_runtime</a>, <a href="#py_runtime_pair-py3_runtime">py3_runtime</a>, <a href="#py_runtime_pair-attrs">attrs</a>)
+</pre>
+
+A toolchain rule for Python.
+
+This used to wrap up to two Python runtimes, one for Python 2 and one for Python 3.
+However, Python 2 is no longer supported, so it now only wraps a single Python 3
+runtime.
+
+Usually the wrapped runtimes are declared using the `py_runtime` rule, but any
+rule returning a `PyRuntimeInfo` provider may be used.
+
+This rule returns a `platform_common.ToolchainInfo` provider with the following
+schema:
+
+```python
+platform_common.ToolchainInfo(
+    py2_runtime = None,
+    py3_runtime = &lt;PyRuntimeInfo or None&gt;,
+)
+```
+
+Example usage:
+
+```python
+# In your BUILD file...
+
+load("@rules_python//python:defs.bzl", "py_runtime_pair")
+
+py_runtime(
+    name = "my_py3_runtime",
+    interpreter_path = "/system/python3",
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "my_py_runtime_pair",
+    py3_runtime = ":my_py3_runtime",
+)
+
+toolchain(
+    name = "my_toolchain",
+    target_compatible_with = &lt;...&gt;,
+    toolchain = ":my_py_runtime_pair",
+    toolchain_type = "@rules_python//python:toolchain_type",
+)
+```
+
+```python
+# In your WORKSPACE...
+
+register_toolchains("//my_pkg:my_toolchain")
+```
+
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="py_runtime_pair-name"></a>name |  str, the name of the target   |  none |
+| <a id="py_runtime_pair-py2_runtime"></a>py2_runtime |  optional Label; must be unset or None; an error is raised otherwise.   |  <code>None</code> |
+| <a id="py_runtime_pair-py3_runtime"></a>py3_runtime |  Label; a target with <code>PyRuntimeInfo</code> for Python 3.   |  <code>None</code> |
+| <a id="py_runtime_pair-attrs"></a>attrs |  Extra attrs passed onto the native rule   |  none |
+
+
+<a id="py_test"></a>
 
 ## py_test
 
@@ -174,11 +194,11 @@ See the Bazel core [py_test](https://docs.bazel.build/versions/master/be/python.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| attrs |  Rule attributes   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="py_test-attrs"></a>attrs |  Rule attributes   |  none |
 
 
-<a name="#find_requirements"></a>
+<a id="find_requirements"></a>
 
 ## find_requirements
 
@@ -195,7 +215,7 @@ The aspect definition. Can be invoked on the command line as
 
 
 | Name | Type |
-| :-------------: | :-------------: |
+| :------------- | :------------- |
 | deps| String |
 
 
@@ -203,7 +223,7 @@ The aspect definition. Can be invoked on the command line as
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |   |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="find_requirements-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |   |
 
 

@@ -39,9 +39,11 @@ import (
 	"sync"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/internal/facts"
 	"golang.org/x/tools/go/gcexportdata"
+	"golang.org/x/tools/internal/facts"
 )
+
+const nogoBaseConfigName = "_base"
 
 func init() {
 	if err := analysis.Validate(analyzers); err != nil {
@@ -62,7 +64,7 @@ func main() {
 // run returns an error if there is a problem loading the package or if any
 // analysis fails.
 func run(args []string) error {
-	args, err := expandParamsFiles(args)
+	args, _, err := expandParamsFiles(args)
 	if err != nil {
 		return fmt.Errorf("error reading paramfiles: %v", err)
 	}
@@ -89,7 +91,7 @@ func run(args []string) error {
 		return fmt.Errorf("errors found by nogo during build-time code analysis:\n%s\n", diagnostics)
 	}
 	if *xPath != "" {
-		if err := ioutil.WriteFile(abs(*xPath), facts, 0666); err != nil {
+		if err := ioutil.WriteFile(abs(*xPath), facts, 0o666); err != nil {
 			return fmt.Errorf("error writing facts: %v", err)
 		}
 	}
@@ -172,6 +174,21 @@ func checkPackage(analyzers []*analysis.Analyzer, packagePath string, packageFil
 
 	roots := make([]*action, 0, len(analyzers))
 	for _, a := range analyzers {
+		if cfg, ok := configs[a.Name]; ok {
+			for flagKey, flagVal := range cfg.analyzerFlags {
+				if strings.HasPrefix(flagKey, "-") {
+					return "", nil, fmt.Errorf(
+						"%s: flag should not begin with '-': %s", a.Name, flagKey)
+				}
+				if flag := a.Flags.Lookup(flagKey); flag == nil {
+					return "", nil, fmt.Errorf("%s: unrecognized flag: %s", a.Name, flagKey)
+				}
+				if err := a.Flags.Set(flagKey, flagVal); err != nil {
+					return "", nil, fmt.Errorf(
+						"%s: invalid value for flag: %s=%s: %w", a.Name, flagKey, flagVal, err)
+				}
+			}
+		}
 		roots = append(roots, visit(a))
 	}
 
@@ -320,13 +337,16 @@ func load(packagePath string, imp *importer, filenames []string) (*goPackage, er
 		Scopes:     make(map[ast.Node]*types.Scope),
 		Selections: make(map[*ast.SelectorExpr]*types.Selection),
 	}
+
+	initInstanceInfo(info)
+
 	types, err := config.Check(packagePath, pkg.fset, syntax, info)
 	if err != nil {
 		pkg.illTyped, pkg.typeCheckError = true, err
 	}
 	pkg.types, pkg.typesInfo = types, info
 
-	pkg.facts, err = facts.Decode(pkg.types, imp.readFacts)
+	pkg.facts, err = facts.NewDecoder(pkg.types).Decode(imp.readFacts)
 	if err != nil {
 		return nil, fmt.Errorf("internal error decoding facts: %v", err)
 	}
@@ -381,10 +401,26 @@ func checkAnalysisResults(actions []*action, pkg *goPackage) string {
 		if len(act.diagnostics) == 0 {
 			continue
 		}
-		config, ok := configs[act.a.Name]
-		if !ok {
-			// If the analyzer is not explicitly configured, it emits diagnostics for
-			// all files.
+		var currentConfig config
+		// Use the base config if it exists.
+		if baseConfig, ok := configs[nogoBaseConfigName]; ok {
+			currentConfig = baseConfig
+		}
+		// Overwrite the config with the desired config. Any unset fields
+		// in the config will default to the base config.
+		if actionConfig, ok := configs[act.a.Name]; ok {
+			if actionConfig.analyzerFlags != nil {
+				currentConfig.analyzerFlags = actionConfig.analyzerFlags
+			}
+			if actionConfig.onlyFiles != nil {
+				currentConfig.onlyFiles = actionConfig.onlyFiles
+			}
+			if actionConfig.excludeFiles != nil {
+				currentConfig.excludeFiles = actionConfig.excludeFiles
+			}
+		}
+
+		if currentConfig.onlyFiles == nil && currentConfig.excludeFiles == nil {
 			for _, diag := range act.diagnostics {
 				diagnostics = append(diagnostics, entry{Diagnostic: diag, Analyzer: act.a})
 			}
@@ -400,10 +436,10 @@ func checkAnalysisResults(actions []*action, pkg *goPackage) string {
 				filename = p.Filename
 			}
 			include := true
-			if len(config.onlyFiles) > 0 {
+			if len(currentConfig.onlyFiles) > 0 {
 				// This analyzer emits diagnostics for only a set of files.
 				include = false
-				for _, pattern := range config.onlyFiles {
+				for _, pattern := range currentConfig.onlyFiles {
 					if pattern.MatchString(filename) {
 						include = true
 						break
@@ -411,7 +447,7 @@ func checkAnalysisResults(actions []*action, pkg *goPackage) string {
 				}
 			}
 			if include {
-				for _, pattern := range config.excludeFiles {
+				for _, pattern := range currentConfig.excludeFiles {
 					if pattern.MatchString(filename) {
 						include = false
 						break
@@ -457,6 +493,11 @@ type config struct {
 	// excludeFiles is a list of regular expressions that match files that an
 	// analyzer will not emit diagnostics for.
 	excludeFiles []*regexp.Regexp
+
+	// analyzerFlags is a map of flag names to flag values which will be passed
+	// to Analyzer.Flags. Note that no leading '-' should be present in a flag
+	// name
+	analyzerFlags map[string]string
 }
 
 // importer is an implementation of go/types.Importer that imports type
@@ -518,8 +559,8 @@ func (i *importer) Import(path string) (*types.Package, error) {
 	return gcexportdata.Read(r, i.fset, i.packageCache, path)
 }
 
-func (i *importer) readFacts(path string) ([]byte, error) {
-	archive := i.factMap[path]
+func (i *importer) readFacts(pkg *types.Package) ([]byte, error) {
+	archive := i.factMap[pkg.Path()]
 	if archive == "" {
 		// Packages that were not built with the nogo toolchain will not be
 		// analyzed, so there's no opportunity to store facts. This includes

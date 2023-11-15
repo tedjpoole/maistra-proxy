@@ -4,6 +4,14 @@
       "name": [
         {
           "service": "google.cloud.recommender.v1beta1.Recommender",
+          "method": "ListInsights"
+        },
+        {
+          "service": "google.cloud.recommender.v1beta1.Recommender",
+          "method": "GetInsight"
+        },
+        {
+          "service": "google.cloud.recommender.v1beta1.Recommender",
           "method": "ListRecommendations"
         },
         {
@@ -14,7 +22,7 @@
       "timeout": "60s",
       "retryPolicy": {
         "maxAttempts": 5,
-        "initialBackoff": "1s",
+        "initialBackoff": "0.100s",
         "maxBackoff": "60s",
         "backoffMultiplier": 1.3,
         "retryableStatusCodes": [
@@ -25,6 +33,10 @@
     },
     {
       "name": [
+        {
+          "service": "google.cloud.recommender.v1beta1.Recommender",
+          "method": "MarkInsightAccepted"
+        },
         {
           "service": "google.cloud.recommender.v1beta1.Recommender",
           "method": "MarkRecommendationClaimed"
@@ -38,14 +50,7 @@
           "method": "MarkRecommendationFailed"
         }
       ],
-      "timeout": "60s",
-      "retryPolicy": {
-        "maxAttempts": 5,
-        "initialBackoff": "1s",
-        "maxBackoff": "60s",
-        "backoffMultiplier": 1.3,
-        "retryableStatusCodes": []
-      }
+      "timeout": "60s"
     }
   ]
 }

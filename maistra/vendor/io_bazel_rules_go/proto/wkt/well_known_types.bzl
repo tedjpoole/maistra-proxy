@@ -1,7 +1,6 @@
 load("//go:def.bzl", "GoArchive", "GoLibrary", "GoSource")
 load("//proto:compiler.bzl", "GoProtoCompiler")
 
-_proto_library_suffix = "proto"
 _go_proto_library_suffix = "go_proto"
 
 # NOTE: since protobuf 3.14, the WKTs no longer use these paths. They're only
@@ -33,7 +32,7 @@ GOGO_WELL_KNOWN_TYPE_REMAPS = [
 
 # NOTE: only used by gogo.
 WELL_KNOWN_TYPE_RULES = {
-    wkt: "@io_bazel_rules_go//proto/wkt:{}_{}".format(wkt, _go_proto_library_suffix)
+    wkt: Label("//proto/wkt:{}_{}".format(wkt, _go_proto_library_suffix))
     for wkt in WELL_KNOWN_TYPE_PACKAGES.keys()
 }
 
@@ -67,6 +66,7 @@ WELL_KNOWN_TYPES_APIV2 = [
     "@org_golang_google_protobuf//types/pluginpb",
 ]
 
+# buildifier: disable=unused-variable
 def _go_proto_wrapper_compile(go, compiler, protos, imports, importpath):
     return []
 

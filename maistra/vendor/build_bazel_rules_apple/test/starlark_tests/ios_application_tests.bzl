@@ -15,6 +15,10 @@
 """ios_application Starlark tests."""
 
 load(
+    ":common.bzl",
+    "common",
+)
+load(
     ":rules/apple_verification_test.bzl",
     "apple_verification_test",
 )
@@ -27,6 +31,10 @@ load(
     "apple_symbols_file_test",
     "archive_contents_test",
     "bitcode_symbol_map_test",
+)
+load(
+    ":rules/entitlements_contents_test.bzl",
+    "entitlements_contents_test",
 )
 load(
     ":rules/dsyms_test.bzl",
@@ -76,10 +84,7 @@ def ios_application_test_suite(name):
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_ext_and_fmwk_provisioned",
         verifier_script = "verifier_scripts/codesign_verifier.sh",
         sanitizer = "asan",
-        tags = [
-            name,
-            "manual",  # disabled in oss
-        ],
+        tags = [name],
     )
 
     apple_verification_test(
@@ -103,6 +108,96 @@ def ios_application_test_suite(name):
         build_type = "simulator",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_imported_fmwk",
         verifier_script = "verifier_scripts/codesign_verifier.sh",
+        tags = [name],
+    )
+
+    # Verify ios_application with imported dynamic framework bundles files for Objective-C/Swift
+    archive_contents_test(
+        name = "{}_with_imported_dynamic_fmwk_bundles_files".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_imported_fmwk",
+        contains = [
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Info.plist",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/iOSDynamicFramework",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Resources/iOSDynamicFramework.bundle/Info.plist",
+        ],
+        not_contains = [
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Headers/SharedClass.h",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Headers/iOSDynamicFramework.h",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Modules/module.modulemap",
+        ],
+        tags = [name],
+    )
+    archive_contents_test(
+        name = "{}_swift_with_imported_dynamic_fmwk_bundles_files".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:swift_app_with_imported_dynamic_fmwk",
+        contains = [
+            "$BUNDLE_ROOT/Frameworks/libswiftCore.dylib",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Info.plist",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/iOSDynamicFramework",
+        ],
+        not_contains = [
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Headers/SharedClass.h",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Headers/iOSDynamicFramework.h",
+            "$BUNDLE_ROOT/Frameworks/iOSDynamicFramework.framework/Modules/module.modulemap",
+        ],
+        tags = [name],
+    )
+
+    # Verify ios_application with imported static framework contains symbols for Objective-C/Swift,
+    # and resource bundles; but does not bundle the static library.
+    archive_contents_test(
+        name = "{}_with_imported_static_fmwk_contains_symbols_and_bundles_resources".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_imported_static_fmwk",
+        binary_test_file = "$BINARY",
+        binary_test_architecture = "x86_64",
+        binary_contains_symbols = [
+            "-[SharedClass doSomethingShared]",
+            "_OBJC_CLASS_$_SharedClass",
+        ],
+        contains = ["$BUNDLE_ROOT/iOSStaticFramework.bundle/Info.plist"],
+        not_contains = ["$BUNDLE_ROOT/Frameworks/iOSStaticFramework.framework"],
+        tags = [name],
+    )
+    archive_contents_test(
+        name = "{}_with_imported_swift_static_fmwk_contains_symbols_and_not_bundles_files".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_imported_swift_static_fmwk",
+        binary_test_file = "$BINARY",
+        binary_test_architecture = "x86_64",
+        binary_contains_symbols = [
+            "_OBJC_CLASS_$__TtC23iOSSwiftStaticFramework11SharedClass",
+        ],
+        not_contains = ["$BUNDLE_ROOT/Frameworks/iOSSwiftStaticFramework.framework"],
+        tags = [name],
+    )
+    archive_contents_test(
+        name = "{}_with_imported_swift_static_fmwk_and_no_swift_module_interface_file_contains_symbols_and_not_bundles_files".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_imported_swift_static_fmwk_without_module_interface_files",
+        binary_test_file = "$BINARY",
+        binary_test_architecture = "x86_64",
+        binary_contains_symbols = [
+            "_OBJC_CLASS_$__TtC23iOSSwiftStaticFramework11SharedClass",
+        ],
+        contains = ["$BUNDLE_ROOT/Frameworks/libswiftCore.dylib"],
+        not_contains = ["$BUNDLE_ROOT/Frameworks/iOSSwiftStaticFramework.framework"],
+        tags = [name],
+    )
+    archive_contents_test(
+        name = "{}_swift_with_imported_static_fmwk_contains_symbols_and_not_bundles_files".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:swift_app_with_imported_static_fmwk",
+        binary_test_file = "$BINARY",
+        binary_test_architecture = "x86_64",
+        binary_contains_symbols = [
+            "-[SharedClass doSomethingShared]",
+            "_OBJC_CLASS_$_SharedClass",
+        ],
+        contains = ["$BUNDLE_ROOT/Frameworks/libswiftCore.dylib"],
+        not_contains = ["$BUNDLE_ROOT/Frameworks/iOSStaticFramework.framework"],
         tags = [name],
     )
 
@@ -168,6 +263,30 @@ def ios_application_test_suite(name):
         build_type = "device",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app",
         verifier_script = "verifier_scripts/entitlements_verifier.sh",
+        tags = [name],
+    )
+
+    entitlements_contents_test(
+        name = "{}_entitlements_contents_simulator_test".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app",
+        expected_values = {
+            "application-identifier": "FOOBARBAZ1.*",
+            "get-task-allow": "true",
+            "test-an-entitlement": "false",
+        },
+        tags = [name],
+    )
+
+    entitlements_contents_test(
+        name = "{}_entitlements_contents_device_test".format(name),
+        build_type = "device",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app",
+        expected_values = {
+            "application-identifier": "FOOBARBAZ1.*",
+            "get-task-allow": "true",
+            "test-an-entitlement": "false",
+        },
         tags = [name],
     )
 
@@ -239,14 +358,24 @@ def ios_application_test_suite(name):
     dsyms_test(
         name = "{}_dsyms_test".format(name),
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app",
-        expected_dsyms = ["app.app"],
+        expected_direct_dsyms = ["app.app"],
+        expected_transitive_dsyms = ["app.app"],
+        tags = [name],
+    )
+
+    dsyms_test(
+        name = "{}_transitive_dsyms_test".format(name),
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_ext_and_fmwk_provisioned",
+        expected_direct_dsyms = ["app_with_ext_and_fmwk_provisioned.app"],
+        expected_transitive_dsyms = ["app_with_ext_and_fmwk_provisioned.app", "ext_with_fmwk_provisioned.appex", "fmwk_with_provisioning.framework"],
         tags = [name],
     )
 
     dsyms_test(
         name = "{}_custom_executable_name_dsyms_test".format(name),
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_custom_executable_name",
-        expected_dsyms = ["custom_bundle_name.app"],
+        expected_direct_dsyms = ["custom_bundle_name.app"],
+        expected_transitive_dsyms = ["custom_bundle_name.app"],
         expected_binaries = [
             "custom_bundle_name.app.dSYM/Contents/Resources/DWARF/app.exe",
         ],
@@ -271,7 +400,7 @@ def ios_application_test_suite(name):
             "DTSDKName": "iphone*",
             "DTXcode": "*",
             "DTXcodeBuild": "*",
-            "MinimumOSVersion": "8.0",
+            "MinimumOSVersion": common.min_os_ios.baseline,
             "UIDeviceFamily:0": "1",
         },
         tags = [name],
@@ -348,7 +477,7 @@ def ios_application_test_suite(name):
         build_type = "simulator",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_imported_dynamic_fmwk_with_bitcode",
         binary_test_file = "$BUNDLE_ROOT/Frameworks/iOSDynamicFrameworkWithBitcode.framework/iOSDynamicFrameworkWithBitcode",
-        macho_load_commands_not_contain = ["__LLVM"],
+        macho_load_commands_not_contain = ["segname __LLVM"],
         tags = [name],
     )
 
@@ -359,7 +488,7 @@ def ios_application_test_suite(name):
         build_type = "simulator",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_swift_dep",
         binary_test_file = "$BUNDLE_ROOT/Frameworks/libswiftCore.dylib",
-        macho_load_commands_not_contain = ["__LLVM"],
+        macho_load_commands_not_contain = ["segname __LLVM"],
         tags = [name],
     )
 
@@ -382,11 +511,7 @@ def ios_application_test_suite(name):
         ],
         sanitizer = "asan",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_minimal",
-        tags = [
-            name,
-            # OSS Blocked by b/73547309
-            "manual",  # disabled in oss
-        ],
+        tags = [name],
     )
 
     archive_contents_test(
@@ -397,11 +522,7 @@ def ios_application_test_suite(name):
         ],
         sanitizer = "asan",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_minimal",
-        tags = [
-            name,
-            # OSS Blocked by b/73547309
-            "manual",  # disabled in oss
-        ],
+        tags = [name],
     )
 
     archive_contents_test(
@@ -412,11 +533,7 @@ def ios_application_test_suite(name):
         ],
         sanitizer = "tsan",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_minimal",
-        tags = [
-            name,
-            # OSS Blocked by b/73547309
-            "manual",  # disabled in oss
-        ],
+        tags = [name],
     )
 
     archive_contents_test(
@@ -427,11 +544,7 @@ def ios_application_test_suite(name):
         ],
         sanitizer = "ubsan",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_minimal",
-        tags = [
-            name,
-            # OSS Blocked by b/73547309
-            "manual",  # disabled in oss
-        ],
+        tags = [name],
     )
 
     archive_contents_test(
@@ -442,11 +555,7 @@ def ios_application_test_suite(name):
         ],
         sanitizer = "ubsan",
         target_under_test = "//test/starlark_tests/targets_under_test/ios:app_minimal",
-        tags = [
-            name,
-            # OSS Blocked by b/73547309
-            "manual",  # disabled in oss
-        ],
+        tags = [name],
     )
 
     infoplist_contents_test(

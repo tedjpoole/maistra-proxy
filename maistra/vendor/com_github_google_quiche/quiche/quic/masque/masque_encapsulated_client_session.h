@@ -19,7 +19,8 @@ namespace quic {
 // sessions can coexist inside a MASQUE session.
 class QUIC_NO_EXPORT MasqueEncapsulatedClientSession
     : public QuicSpdyClientSession,
-      public MasqueClientSession::EncapsulatedClientSession {
+      public MasqueClientSession::EncapsulatedClientSession,
+      public MasqueClientSession::EncapsulatedIpSession {
  public:
   // Takes ownership of |connection|, but not of |crypto_config| or
   // |push_promise_index| or |masque_client_session|. All pointers must be
@@ -29,8 +30,7 @@ class QUIC_NO_EXPORT MasqueEncapsulatedClientSession
   MasqueEncapsulatedClientSession(
       const QuicConfig& config,
       const ParsedQuicVersionVector& supported_versions,
-      QuicConnection* connection,
-      const QuicServerId& server_id,
+      QuicConnection* connection, const QuicServerId& server_id,
       QuicCryptoClientConfig* crypto_config,
       QuicClientPushPromiseIndex* push_promise_index,
       MasqueClientSession* masque_client_session);
@@ -45,16 +45,32 @@ class QUIC_NO_EXPORT MasqueEncapsulatedClientSession
   void ProcessPacket(absl::string_view packet,
                      QuicSocketAddress server_address) override;
   void CloseConnection(
-      QuicErrorCode error,
-      const std::string& details,
+      QuicErrorCode error, const std::string& details,
       ConnectionCloseBehavior connection_close_behavior) override;
+
+  // From MasqueClientSession::EncapsulatedIpSession.
+  void ProcessIpPacket(absl::string_view packet) override;
+  void CloseIpSession(const std::string& details) override;
+  bool OnAddressAssignCapsule(
+      const quiche::AddressAssignCapsule& capsule) override;
+  bool OnAddressRequestCapsule(
+      const quiche::AddressRequestCapsule& capsule) override;
+  bool OnRouteAdvertisementCapsule(
+      const quiche::RouteAdvertisementCapsule& capsule) override;
 
   // From QuicSession.
   void OnConnectionClosed(const QuicConnectionCloseFrame& frame,
                           ConnectionCloseSource source) override;
 
+  // For CONNECT-IP.
+  QuicIpAddress local_v4_address() const { return local_v4_address_; }
+  QuicIpAddress local_v6_address() const { return local_v6_address_; }
+
  private:
   MasqueClientSession* masque_client_session_;  // Unowned.
+  // For CONNECT-IP.
+  QuicIpAddress local_v4_address_;
+  QuicIpAddress local_v6_address_;
 };
 
 }  // namespace quic

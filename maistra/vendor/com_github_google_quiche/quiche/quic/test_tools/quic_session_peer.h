@@ -13,7 +13,6 @@
 #include "quiche/quic/core/quic_packets.h"
 #include "quiche/quic/core/quic_session.h"
 #include "quiche/quic/core/quic_write_blocked_list.h"
-#include "quiche/quic/platform/api/quic_containers.h"
 
 namespace quic {
 
@@ -52,7 +51,8 @@ class QuicSessionPeer {
                                                       uint32_t max_streams);
 
   static QuicCryptoStream* GetMutableCryptoStream(QuicSession* session);
-  static QuicWriteBlockedList* GetWriteBlockedStreams(QuicSession* session);
+  static QuicWriteBlockedListInterface* GetWriteBlockedStreams(
+      QuicSession* session);
   static QuicStream* GetOrCreateStream(QuicSession* session,
                                        QuicStreamId stream_id);
   static absl::flat_hash_map<QuicStreamId, QuicStreamOffset>&

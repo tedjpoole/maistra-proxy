@@ -6,11 +6,13 @@
 #define QUICHE_QUIC_TEST_TOOLS_QUIC_CONNECTION_PEER_H_
 
 #include <cstddef>
+
 #include "absl/strings/string_view.h"
 #include "quiche/quic/core/quic_connection.h"
 #include "quiche/quic/core/quic_connection_id.h"
 #include "quiche/quic/core/quic_connection_stats.h"
 #include "quiche/quic/core/quic_packets.h"
+#include "quiche/quic/core/quic_path_validator.h"
 #include "quiche/quic/core/quic_types.h"
 #include "quiche/quic/platform/api/quic_socket_address.h"
 
@@ -52,6 +54,10 @@ class QuicConnectionPeer {
 
   static QuicTime::Delta GetHandshakeTimeout(QuicConnection* connection);
 
+  static QuicTime::Delta GetBandwidthUpdateTimeout(QuicConnection* connection);
+
+  static void DisableBandwidthUpdate(QuicConnection* connection);
+
   static void SetPerspective(QuicConnection* connection,
                              Perspective perspective);
 
@@ -62,8 +68,7 @@ class QuicConnectionPeer {
                              const QuicSocketAddress& peer_address);
 
   static void SetDirectPeerAddress(
-      QuicConnection* connection,
-      const QuicSocketAddress& direct_peer_address);
+      QuicConnection* connection, const QuicSocketAddress& direct_peer_address);
 
   static void SetEffectivePeerAddress(
       QuicConnection* connection,
@@ -98,8 +103,7 @@ class QuicConnectionPeer {
 
   static QuicPacketWriter* GetWriter(QuicConnection* connection);
   // If |owns_writer| is true, takes ownership of |writer|.
-  static void SetWriter(QuicConnection* connection,
-                        QuicPacketWriter* writer,
+  static void SetWriter(QuicConnection* connection, QuicPacketWriter* writer,
                         bool owns_writer);
   static void TearDownLocalConnectionState(QuicConnection* connection);
   static QuicEncryptedPacket* GetConnectionClosePacket(
@@ -112,8 +116,7 @@ class QuicConnectionPeer {
   static QuicPacketCount GetPacketsBetweenMtuProbes(QuicConnection* connection);
 
   static void ReInitializeMtuDiscoverer(
-      QuicConnection* connection,
-      QuicPacketCount packets_between_probes_base,
+      QuicConnection* connection, QuicPacketCount packets_between_probes_base,
       QuicPacketNumber next_probe_at);
   static void SetAckDecimationDelay(QuicConnection* connection,
                                     float ack_decimation_delay);
@@ -126,13 +129,10 @@ class QuicConnectionPeer {
                                    QuicPacketCount max_tracked_packets);
   static void SetNegotiatedVersion(QuicConnection* connection);
   static void SetMaxConsecutiveNumPacketsWithNoRetransmittableFrames(
-      QuicConnection* connection,
-      size_t new_value);
+      QuicConnection* connection, size_t new_value);
   static bool SupportsReleaseTime(QuicConnection* connection);
   static QuicConnection::PacketContent GetCurrentPacketContent(
       QuicConnection* connection);
-  static void SetLastHeaderFormat(QuicConnection* connection,
-                                  PacketHeaderFormat format);
   static void AddBytesReceived(QuicConnection* connection, size_t length);
   static void SetAddressValidated(QuicConnection* connection);
 
@@ -163,8 +163,7 @@ class QuicConnectionPeer {
       QuicConnection* connection);
 
   static void SetServerConnectionId(
-      QuicConnection* connection,
-      const QuicConnectionId& server_connection_id);
+      QuicConnection* connection, const QuicConnectionId& server_connection_id);
 
   static size_t NumUndecryptablePackets(QuicConnection* connection);
 
@@ -176,6 +175,8 @@ class QuicConnectionPeer {
                                               const QuicSocketAddress& address);
 
   static QuicPathValidator* path_validator(QuicConnection* connection);
+
+  static QuicByteCount BytesReceivedOnDefaultPath(QuicConnection* connection);
 
   static QuicByteCount BytesSentOnAlternativePath(QuicConnection* connection);
 
@@ -201,6 +202,10 @@ class QuicConnectionPeer {
 
   static QuicConnection::PathState* GetDefaultPath(QuicConnection* connection);
 
+  static bool IsDefaultPath(QuicConnection* connection,
+                            const QuicSocketAddress& self_address,
+                            const QuicSocketAddress& peer_address);
+
   static QuicConnection::PathState* GetAlternativePath(
       QuicConnection* connection);
 
@@ -224,6 +229,21 @@ class QuicConnectionPeer {
   static QuicCoalescedPacket& GetCoalescedPacket(QuicConnection* connection);
 
   static void FlushCoalescedPacket(QuicConnection* connection);
+
+  static QuicAlarm* GetMultiPortProbingAlarm(QuicConnection* connection);
+
+  static void SetInProbeTimeOut(QuicConnection* connection, bool value);
+
+  static QuicSocketAddress GetReceivedServerPreferredAddress(
+      QuicConnection* connection);
+
+  static QuicSocketAddress GetSentServerPreferredAddress(
+      QuicConnection* connection);
+
+  static bool TestLastReceivedPacketInfoDefaults();
+
+  // Overrides restrictions on sending ECN for test purposes.
+  static void DisableEcnCodepointValidation(QuicConnection* connection);
 };
 
 }  // namespace test

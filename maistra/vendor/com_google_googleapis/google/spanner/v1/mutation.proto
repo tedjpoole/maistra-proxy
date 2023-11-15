@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,15 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 syntax = "proto3";
 
 package google.spanner.v1;
 
+import "google/api/field_behavior.proto";
 import "google/protobuf/struct.proto";
 import "google/spanner/v1/keys.proto";
-import "google/api/annotations.proto";
 
 option csharp_namespace = "Google.Cloud.Spanner.V1";
 option go_package = "google.golang.org/genproto/googleapis/spanner/v1;spanner";
@@ -27,6 +26,7 @@ option java_multiple_files = true;
 option java_outer_classname = "MutationProto";
 option java_package = "com.google.spanner.v1";
 option php_namespace = "Google\\Cloud\\Spanner\\V1";
+option ruby_package = "Google::Cloud::Spanner::V1";
 
 // A modification to one or more Cloud Spanner rows.  Mutations can be
 // applied to a Cloud Spanner database by sending them in a
@@ -36,7 +36,7 @@ message Mutation {
   // [replace][google.spanner.v1.Mutation.replace] operations.
   message Write {
     // Required. The table whose rows will be written.
-    string table = 1;
+    string table = 1 [(google.api.field_behavior) = REQUIRED];
 
     // The names of the columns in [table][google.spanner.v1.Mutation.Write.table] to be written.
     //
@@ -59,12 +59,15 @@ message Mutation {
   // Arguments to [delete][google.spanner.v1.Mutation.delete] operations.
   message Delete {
     // Required. The table whose rows will be deleted.
-    string table = 1;
+    string table = 1 [(google.api.field_behavior) = REQUIRED];
 
-    // Required. The primary keys of the rows within [table][google.spanner.v1.Mutation.Delete.table] to delete.
+    // Required. The primary keys of the rows within [table][google.spanner.v1.Mutation.Delete.table] to delete.  The
+    // primary keys must be specified in the order in which they appear in the
+    // `PRIMARY KEY()` clause of the table's equivalent DDL statement (the DDL
+    // statement used to create the table).
     // Delete is idempotent. The transaction will succeed even if some or all
     // rows do not exist.
-    KeySet key_set = 2;
+    KeySet key_set = 2 [(google.api.field_behavior) = REQUIRED];
   }
 
   // Required. The operation to perform.
@@ -80,6 +83,10 @@ message Mutation {
     // Like [insert][google.spanner.v1.Mutation.insert], except that if the row already exists, then
     // its column values are overwritten with the ones provided. Any
     // column values not explicitly written are preserved.
+    //
+    // When using [insert_or_update][google.spanner.v1.Mutation.insert_or_update], just as when using [insert][google.spanner.v1.Mutation.insert], all `NOT
+    // NULL` columns in the table must be given a value. This holds true
+    // even when the row already exists and will therefore actually be updated.
     Write insert_or_update = 3;
 
     // Like [insert][google.spanner.v1.Mutation.insert], except that if the row already exists, it is

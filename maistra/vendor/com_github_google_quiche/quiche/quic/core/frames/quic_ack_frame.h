@@ -10,7 +10,6 @@
 #include "quiche/quic/core/quic_interval.h"
 #include "quiche/quic/core/quic_interval_set.h"
 #include "quiche/quic/core/quic_types.h"
-#include "quiche/quic/platform/api/quic_containers.h"
 #include "quiche/quic/platform/api/quic_export.h"
 #include "quiche/quic/platform/api/quic_flags.h"
 
@@ -83,8 +82,7 @@ class QUIC_EXPORT_PRIVATE PacketNumberQueue {
   const_reverse_iterator rend() const;
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
-      std::ostream& os,
-      const PacketNumberQueue& q);
+      std::ostream& os, const PacketNumberQueue& q);
 
  private:
   QuicIntervalSet<QuicPacketNumber> packet_number_intervals_;
@@ -98,8 +96,7 @@ struct QUIC_EXPORT_PRIVATE QuicAckFrame {
   void Clear();
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
-      std::ostream& os,
-      const QuicAckFrame& ack_frame);
+      std::ostream& os, const QuicAckFrame& ack_frame);
 
   // The highest packet number we've observed from the peer. When |packets| is
   // not empty, it should always be equal to packets.Max(). The |LargestAcked|
@@ -118,12 +115,8 @@ struct QUIC_EXPORT_PRIVATE QuicAckFrame {
   // Set of packets.
   PacketNumberQueue packets;
 
-  // ECN counters, used only in version 99's ACK frame and valid only when
-  // |ecn_counters_populated| is true.
-  bool ecn_counters_populated = false;
-  QuicPacketCount ect_0_count = 0;
-  QuicPacketCount ect_1_count = 0;
-  QuicPacketCount ecn_ce_count = 0;
+  // ECN counters.
+  absl::optional<QuicEcnCounts> ecn_counters;
 };
 
 // The highest acked packet number we've observed from the peer. If no packets
@@ -139,8 +132,7 @@ LargestAcked(const QuicAckFrame& frame) {
 // as missing.
 // Always returns false for packet numbers less than least_unacked.
 QUIC_EXPORT_PRIVATE bool IsAwaitingPacket(
-    const QuicAckFrame& ack_frame,
-    QuicPacketNumber packet_number,
+    const QuicAckFrame& ack_frame, QuicPacketNumber packet_number,
     QuicPacketNumber peer_least_packet_awaiting_ack);
 
 }  // namespace quic

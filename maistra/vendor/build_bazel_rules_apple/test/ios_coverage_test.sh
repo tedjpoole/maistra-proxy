@@ -139,7 +139,7 @@ ios_application(
     bundle_id = "my.bundle.id",
     families = ["iphone"],
     infoplists = ["Info.plist"],
-    minimum_os_version = "9.0",
+    minimum_os_version = "${MIN_OS_IOS}",
     provisioning_profile = "@build_bazel_rules_apple//test/testdata/provisioning:integration_testing_ios.mobileprovision",
     deps = [":app_lib"],
 )
@@ -147,14 +147,14 @@ ios_application(
 ios_unit_test(
     name = "hosted_test",
     deps = [":hosted_test_lib"],
-    minimum_os_version = "9.0",
+    minimum_os_version = "${MIN_OS_IOS}",
     test_host = ":app",
 )
 
 ios_unit_test(
     name = "standalone_test",
     deps = [":standalone_test_lib"],
-    minimum_os_version = "9.0",
+    minimum_os_version = "${MIN_OS_IOS}",
 )
 EOF
 }
@@ -164,6 +164,13 @@ function test_standalone_unit_test_coverage() {
   do_coverage ios --test_output=errors --ios_minimum_os=9.0 --experimental_use_llvm_covmap //app:standalone_test || fail "Should build"
 
   assert_contains "SharedLogic.m:-\[SharedLogic doSomething\]" "test-testlogs/app/standalone_test/coverage.dat"
+}
+
+function test_standalone_unit_test_coverage_json() {
+  create_common_files
+  do_coverage ios --test_output=errors --ios_minimum_os=9.0 --experimental_use_llvm_covmap --test_env=COVERAGE_PRODUCE_JSON=1 //app:standalone_test || fail "Should build"
+  unzip_single_file "test-testlogs/app/standalone_test/test.outputs/outputs.zip" coverage.json \
+      grep '"name":"SharedLogic.m:-\[SharedLogic doSomething\]"'
 }
 
 function test_hosted_unit_test_coverage() {

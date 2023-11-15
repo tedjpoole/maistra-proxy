@@ -314,6 +314,10 @@ protected:
   std::shared_ptr<VmIdHandle> vm_id_handle_;
 };
 
+using WasmHandleFactory = std::function<std::shared_ptr<WasmHandleBase>(std::string_view vm_id)>;
+using WasmHandleCloneFactory =
+    std::function<std::shared_ptr<WasmHandleBase>(std::shared_ptr<WasmHandleBase> wasm)>;
+
 // Handle which enables shutdown operations to run post deletion (e.g. post listener drain).
 class WasmHandleBase : public std::enable_shared_from_this<WasmHandleBase> {
 public:
@@ -324,20 +328,20 @@ public:
     }
   }
 
+  bool canary(const std::shared_ptr<PluginBase> &plugin,
+              const WasmHandleCloneFactory &clone_factory);
+
   void kill() { wasm_base_ = nullptr; }
 
   std::shared_ptr<WasmBase> &wasm() { return wasm_base_; }
 
 protected:
   std::shared_ptr<WasmBase> wasm_base_;
+  std::unordered_map<std::string, bool> plugin_canary_cache_;
 };
 
 std::string makeVmKey(std::string_view vm_id, std::string_view configuration,
                       std::string_view code);
-
-using WasmHandleFactory = std::function<std::shared_ptr<WasmHandleBase>(std::string_view vm_id)>;
-using WasmHandleCloneFactory =
-    std::function<std::shared_ptr<WasmHandleBase>(std::shared_ptr<WasmHandleBase> wasm)>;
 
 // Returns nullptr on failure (i.e. initialization of the VM fails).
 std::shared_ptr<WasmHandleBase> createWasm(const std::string &vm_key, const std::string &code,
@@ -389,7 +393,15 @@ inline void *WasmBase::allocMemory(uint64_t size, uint64_t *address) {
   if (!malloc_) {
     return nullptr;
   }
+  wasm_vm_->setRestrictedCallback(
+      true, {// logging (Proxy-Wasm)
+             "env.proxy_log",
+             // logging (stdout/stderr)
+             "wasi_unstable.fd_write", "wasi_snapshot_preview1.fd_write",
+             // time
+             "wasi_unstable.clock_time_get", "wasi_snapshot_preview1.clock_time_get"});
   Word a = malloc_(vm_context(), size);
+  wasm_vm_->setRestrictedCallback(false);
   if (!a.u64_) {
     return nullptr;
   }

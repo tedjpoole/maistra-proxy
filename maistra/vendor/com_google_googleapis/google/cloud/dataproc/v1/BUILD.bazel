@@ -13,11 +13,13 @@ proto_library(
     name = "dataproc_proto",
     srcs = [
         "autoscaling_policies.proto",
+        "batches.proto",
         "clusters.proto",
         "jobs.proto",
         "operations.proto",
         "shared.proto",
         "workflow_templates.proto",
+        "node_groups.proto",
     ],
     deps = [
         "//google/api:annotations_proto",
@@ -65,13 +67,14 @@ java_grpc_library(
 
 java_gapic_library(
     name = "dataproc_java_gapic",
-    src = ":dataproc_proto_with_info",
+    srcs = [":dataproc_proto_with_info"],
     gapic_yaml = "dataproc_gapic.yaml",
-    package = "google.cloud.dataproc.v1",
-    service_yaml = "dataproc_v1.yaml",
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":dataproc_java_grpc",
     ],
+    transport = "grpc+rest",
     deps = [
         ":dataproc_java_proto",
     ],
@@ -81,10 +84,16 @@ java_gapic_test(
     name = "dataproc_java_gapic_test_suite",
     test_classes = [
         # Add AutoscalingPolicyService to gapic yaml
-        # "com.google.cloud.dataproc.v1.AutoscalingPolicyServiceClientTest",
+        "com.google.cloud.dataproc.v1.AutoscalingPolicyServiceClientHttpJsonTest",
+        "com.google.cloud.dataproc.v1.AutoscalingPolicyServiceClientTest",
+        "com.google.cloud.dataproc.v1.ClusterControllerClientHttpJsonTest",
         "com.google.cloud.dataproc.v1.ClusterControllerClientTest",
+        "com.google.cloud.dataproc.v1.JobControllerClientHttpJsonTest",
         "com.google.cloud.dataproc.v1.JobControllerClientTest",
+        "com.google.cloud.dataproc.v1.WorkflowTemplateServiceClientHttpJsonTest",
         "com.google.cloud.dataproc.v1.WorkflowTemplateServiceClientTest",
+        "com.google.cloud.dataproc.v1.NodeGroupControllerClientHttpJsonTest",
+        "com.google.cloud.dataproc.v1.NodeGroupControllerClientTest",
     ],
     runtime_deps = [":dataproc_java_gapic_test"],
 )
@@ -92,6 +101,8 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-dataproc-v1-java",
+    include_samples = True,
+    transport = "grpc+rest",
     deps = [
         ":dataproc_java_gapic",
         ":dataproc_java_grpc",
@@ -124,16 +135,17 @@ go_proto_library(
 
 go_gapic_library(
     name = "dataproc_go_gapic",
-    src = ":dataproc_proto_with_info",
-    gapic_yaml = "dataproc_gapic.yaml",
-    importpath = "cloud.google.com/go/dataproc/apiv1",
-    package = "google.cloud.dataproc.v1",
+    srcs = [":dataproc_proto_with_info"],
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    importpath = "cloud.google.com/go/dataproc/apiv1;dataproc",
+    rest_numeric_enums = True,
     service_yaml = "dataproc_v1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":dataproc_go_proto",
-        "//google/longrunning:longrunning_go_gapic",
         "//google/longrunning:longrunning_go_proto",
-        "@com_google_cloud_go//longrunning:go_default_library",
+        "@com_google_cloud_go_longrunning//:go_default_library",
+        "@com_google_cloud_go_longrunning//autogen:go_default_library",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
     ],
 )
@@ -150,7 +162,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-dataproc-v1-go",
     deps = [
         ":dataproc_go_gapic",
-        ":dataproc_go_gapic_srcjar-smoke-test.srcjar",
         ":dataproc_go_gapic_srcjar-test.srcjar",
         ":dataproc_go_proto",
     ],
@@ -161,60 +172,33 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "dataproc_moved_proto",
-    srcs = [":dataproc_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-        "//google/longrunning:operations_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:timestamp_proto",
-    ],
-)
-
-py_proto_library(
-    name = "dataproc_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":dataproc_moved_proto"],
-)
-
-py_grpc_library(
-    name = "dataproc_py_grpc",
-    srcs = [":dataproc_moved_proto"],
-    deps = [":dataproc_py_proto"],
+    "py_test",
 )
 
 py_gapic_library(
     name = "dataproc_py_gapic",
-    src = ":dataproc_proto_with_info",
-    gapic_yaml = "dataproc_gapic.yaml",
-    package = "google.cloud.dataproc.v1",
-    service_yaml = "dataproc_v1.yaml",
-    deps = [
-        ":dataproc_py_grpc",
-        ":dataproc_py_proto",
-    ],
+    srcs = [":dataproc_proto"],
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc",
 )
 
-# Open Source Packages
+py_test(
+    name = "dataproc_py_gapic_test",
+    srcs = [
+        "dataproc_py_gapic_pytest.py",
+        "dataproc_py_gapic_test.py",
+    ],
+    legacy_create_init = False,
+    deps = [":dataproc_py_gapic"],
+)
+
 py_gapic_assembly_pkg(
     name = "dataproc-v1-py",
     deps = [
         ":dataproc_py_gapic",
-        ":dataproc_py_grpc",
-        ":dataproc_py_proto",
     ],
 )
 
@@ -242,10 +226,12 @@ php_grpc_library(
 
 php_gapic_library(
     name = "dataproc_php_gapic",
-    src = ":dataproc_proto_with_info",
+    srcs = [":dataproc_proto_with_info"],
     gapic_yaml = "dataproc_gapic.yaml",
-    package = "google.cloud.dataproc.v1",
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    rest_numeric_enums = True,
     service_yaml = "dataproc_v1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":dataproc_php_grpc",
         ":dataproc_php_proto",
@@ -273,10 +259,15 @@ load(
 
 nodejs_gapic_library(
     name = "dataproc_nodejs_gapic",
+    package_name = "@google-cloud/dataproc",
     src = ":dataproc_proto_with_info",
-    gapic_yaml = "dataproc_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    main_service = "dataproc",
     package = "google.cloud.dataproc.v1",
+    rest_numeric_enums = True,
     service_yaml = "dataproc_v1.yaml",
+    transport = "grpc+rest",
     deps = [],
 )
 
@@ -293,8 +284,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -310,12 +301,20 @@ ruby_grpc_library(
     deps = [":dataproc_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "dataproc_ruby_gapic",
-    src = ":dataproc_proto_with_info",
-    gapic_yaml = "dataproc_gapic.yaml",
-    package = "google.cloud.dataproc.v1",
-    service_yaml = "dataproc_v1.yaml",
+    srcs = [":dataproc_proto_with_info"],
+    extra_protoc_parameters = [
+        "ruby-cloud-gem-name=google-cloud-dataproc-v1",
+        "ruby-cloud-env-prefix=DATAPROC",
+        "ruby-cloud-product-url=https://cloud.google.com/dataproc",
+        "ruby-cloud-api-id=dataproc.googleapis.com",
+        "ruby-cloud-api-shortname=dataproc",
+    ],
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    rest_numeric_enums = True,
+    ruby_cloud_description = "Manages Hadoop-based clusters and jobs on Google Cloud Platform.",
+    ruby_cloud_title = "Cloud Dataproc V1",
     deps = [
         ":dataproc_ruby_grpc",
         ":dataproc_ruby_proto",
@@ -356,9 +355,10 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "dataproc_csharp_gapic",
-    src = ":dataproc_proto_with_info",
-    gapic_yaml = "dataproc_gapic.yaml",
-    package = "google.cloud.dataproc.v1",
+    srcs = [":dataproc_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "dataproc_grpc_service_config.json",
+    rest_numeric_enums = True,
     service_yaml = "dataproc_v1.yaml",
     deps = [
         ":dataproc_csharp_grpc",
@@ -379,4 +379,20 @@ csharp_gapic_assembly_pkg(
 ##############################################################################
 # C++
 ##############################################################################
-# Put your C++ rules here
+load(
+    "@com_google_googleapis_imports//:imports.bzl",
+    "cc_grpc_library",
+    "cc_proto_library",
+)
+
+cc_proto_library(
+    name = "dataproc_cc_proto",
+    deps = [":dataproc_proto"],
+)
+
+cc_grpc_library(
+    name = "dataproc_cc_grpc",
+    srcs = [":dataproc_proto"],
+    grpc_only = True,
+    deps = [":dataproc_cc_proto"],
+)

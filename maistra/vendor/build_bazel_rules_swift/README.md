@@ -18,12 +18,6 @@ If you run into any problems with these rules, please
 for the reference documentation for the rules and other definitions in this
 repository.
 
-## Compatibility
-
-Please refer to the
-[release notes](https://github.com/bazelbuild/rules_swift/releases) for a given
-release to see which version of Bazel it is compatible with.
-
 ## Quick Setup
 
 ### 1. Install Swift
@@ -42,37 +36,8 @@ also ensure that the Swift compiler is available on your system path.
 
 ### 2. Configure your workspace
 
-Add the following to your `WORKSPACE` file to add the external repositories,
-replacing the `urls` and `sha256` attributes with the values from the release
-you wish to depend on:
-
-```python
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "build_bazel_rules_swift",
-    sha256 = "3e52a508cdc47a7adbad36a3d2b712e282cc39cc211b0d63efcaf608961eb36b",
-    url = "https://github.com/bazelbuild/rules_swift/releases/download/0.26.0/rules_swift.0.26.0.tar.gz",
-)
-
-load(
-    "@build_bazel_rules_swift//swift:repositories.bzl",
-    "swift_rules_dependencies",
-)
-
-swift_rules_dependencies()
-
-load(
-    "@build_bazel_rules_swift//swift:extras.bzl",
-    "swift_rules_extra_dependencies",
-)
-
-swift_rules_extra_dependencies()
-```
-
-The `swift_rules_dependencies` macro creates a toolchain appropriate for your
-platform (either by locating an installation of Xcode on macOS, or looking for
-`swiftc` on the system path on Linux).
+Copy the `WORKSPACE` snippet from [the releases
+page](https://github.com/bazelbuild/rules_swift/releases).
 
 ### 3. Additional configuration (Linux only)
 
@@ -107,10 +72,10 @@ bazel run @build_bazel_rules_swift//tools/dump_toolchains
 **Linux hosts:** At this time, Bazel uses whichever `swift` executable is
 encountered first on your `PATH`.
 
-## Supporting remote builds
+## Supporting debugging
 
-To make remote builds work correctly with debugging and general
-reproducibility see [this doc](doc/debuggable_remote_swift.md)
+To make cacheable builds work correctly with debugging see
+[this doc](doc/debuggable_remote_swift.md).
 
 ## Swift Package Manager Support
 
@@ -129,6 +94,26 @@ rules.
   macOS.
 - Automatically download a Linux toolchain from [swift.org](https://swift.org)
   if one is not already installed.
+
+## Supported bazel versions
+
+rules_apple and rules_swift are often affected by changes in bazel
+itself. This means you generally need to update these rules as you
+update bazel.
+
+You can also see the supported bazel versions in the notes for each
+release on the [releases
+page](https://github.com/bazelbuild/rules_swift/releases).
+
+Besides these constraint this repo follows [semver](https://semver.org/)
+as best as we can since the 1.0.0 release.
+
+| Bazel release | Minimum supported rules version | Final supported rules version|
+|:-------------------:|:-------------------:|:-------------------------:|
+| 6.x (most recent rolling) | 0.27.0 | current |
+| 5.x | 0.25.0 | current |
+| 4.x | 0.19.0 | 0.24.0 |
+| 3.x | 0.14.0 | 0.18.0 |
 
 ## Acknowledgments
 

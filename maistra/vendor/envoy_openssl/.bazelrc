@@ -1,0 +1,3 @@
+import %workspace%/vendor/envoy/.bazelrc
+import %workspace%/vendor.bazelrc
+build --@envoy//bazel:http3=False

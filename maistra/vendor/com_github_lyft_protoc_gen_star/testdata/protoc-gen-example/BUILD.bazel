@@ -7,7 +7,8 @@ go_library(
         "main.go",
         "printer.go",
     ],
-    importpath = "github.com/lyft/protoc-gen-star/testdata/protoc-gen-example",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/protoc-gen-example",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/protoc-gen-example"],
     visibility = ["//visibility:private"],
     deps = [
         "//:protoc-gen-star",

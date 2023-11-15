@@ -19,22 +19,19 @@ namespace test {
 
 // static
 void QuicConnectionPeer::SetSendAlgorithm(
-    QuicConnection* connection,
-    SendAlgorithmInterface* send_algorithm) {
+    QuicConnection* connection, SendAlgorithmInterface* send_algorithm) {
   GetSentPacketManager(connection)->SetSendAlgorithm(send_algorithm);
 }
 
 // static
 void QuicConnectionPeer::SetLossAlgorithm(
-    QuicConnection* connection,
-    LossDetectionInterface* loss_algorithm) {
+    QuicConnection* connection, LossDetectionInterface* loss_algorithm) {
   GetSentPacketManager(connection)->loss_algorithm_ = loss_algorithm;
 }
 
 // static
 void QuicConnectionPeer::PopulateStopWaitingFrame(
-    QuicConnection* connection,
-    QuicStopWaitingFrame* stop_waiting) {
+    QuicConnection* connection, QuicStopWaitingFrame* stop_waiting) {
   connection->PopulateStopWaitingFrame(stop_waiting);
 }
 
@@ -63,10 +60,28 @@ QuicTime::Delta QuicConnectionPeer::GetHandshakeTimeout(
 }
 
 // static
+QuicTime::Delta QuicConnectionPeer::GetBandwidthUpdateTimeout(
+    QuicConnection* connection) {
+  return connection->idle_network_detector_.bandwidth_update_timeout_;
+}
+
+// static
+void QuicConnectionPeer::DisableBandwidthUpdate(QuicConnection* connection) {
+  if (connection->idle_network_detector_.bandwidth_update_timeout_
+          .IsInfinite()) {
+    return;
+  }
+  connection->idle_network_detector_.bandwidth_update_timeout_ =
+      QuicTime::Delta::Infinite();
+  connection->idle_network_detector_.SetAlarm();
+}
+
+// static
 void QuicConnectionPeer::SetPerspective(QuicConnection* connection,
                                         Perspective perspective) {
   connection->perspective_ = perspective;
   QuicFramerPeer::SetPerspective(&connection->framer_, perspective);
+  connection->ping_manager_.perspective_ = perspective;
 }
 
 // static
@@ -83,8 +98,7 @@ void QuicConnectionPeer::SetPeerAddress(QuicConnection* connection,
 
 // static
 void QuicConnectionPeer::SetDirectPeerAddress(
-    QuicConnection* connection,
-    const QuicSocketAddress& direct_peer_address) {
+    QuicConnection* connection, const QuicSocketAddress& direct_peer_address) {
   connection->direct_peer_address_ = direct_peer_address;
 }
 
@@ -105,7 +119,7 @@ void QuicConnectionPeer::SwapCrypters(QuicConnection* connection,
 void QuicConnectionPeer::SetCurrentPacket(QuicConnection* connection,
                                           absl::string_view current_packet) {
   connection->current_packet_data_ = current_packet.data();
-  connection->last_size_ = current_packet.size();
+  connection->last_received_packet_info_.length = current_packet.size();
 }
 
 // static
@@ -132,7 +146,7 @@ QuicAlarm* QuicConnectionPeer::GetAckAlarm(QuicConnection* connection) {
 
 // static
 QuicAlarm* QuicConnectionPeer::GetPingAlarm(QuicConnection* connection) {
-  return connection->ping_alarm_.get();
+  return connection->ping_manager_.alarm_.get();
 }
 
 // static
@@ -196,8 +210,7 @@ QuicPacketWriter* QuicConnectionPeer::GetWriter(QuicConnection* connection) {
 
 // static
 void QuicConnectionPeer::SetWriter(QuicConnection* connection,
-                                   QuicPacketWriter* writer,
-                                   bool owns_writer) {
+                                   QuicPacketWriter* writer, bool owns_writer) {
   if (connection->owns_writer_) {
     delete connection->writer_;
   }
@@ -224,7 +237,7 @@ QuicEncryptedPacket* QuicConnectionPeer::GetConnectionClosePacket(
 // static
 QuicPacketHeader* QuicConnectionPeer::GetLastHeader(
     QuicConnection* connection) {
-  return &connection->last_header_;
+  return &connection->last_received_packet_info_.header;
 }
 
 // static
@@ -240,8 +253,7 @@ QuicPacketCount QuicConnectionPeer::GetPacketsBetweenMtuProbes(
 
 // static
 void QuicConnectionPeer::ReInitializeMtuDiscoverer(
-    QuicConnection* connection,
-    QuicPacketCount packets_between_probes_base,
+    QuicConnection* connection, QuicPacketCount packets_between_probes_base,
     QuicPacketNumber next_probe_at) {
   connection->mtu_discoverer_ =
       QuicConnectionMtuDiscoverer(packets_between_probes_base, next_probe_at);
@@ -276,8 +288,7 @@ void QuicConnectionPeer::SetNoStopWaitingFrames(QuicConnection* connection,
 
 // static
 void QuicConnectionPeer::SetMaxTrackedPackets(
-    QuicConnection* connection,
-    QuicPacketCount max_tracked_packets) {
+    QuicConnection* connection, QuicPacketCount max_tracked_packets) {
   connection->max_tracked_packets_ = max_tracked_packets;
 }
 
@@ -293,8 +304,7 @@ void QuicConnectionPeer::SetNegotiatedVersion(QuicConnection* connection) {
 
 // static
 void QuicConnectionPeer::SetMaxConsecutiveNumPacketsWithNoRetransmittableFrames(
-    QuicConnection* connection,
-    size_t new_value) {
+    QuicConnection* connection, size_t new_value) {
   connection->max_consecutive_num_packets_with_no_retransmittable_frames_ =
       new_value;
 }
@@ -308,12 +318,6 @@ bool QuicConnectionPeer::SupportsReleaseTime(QuicConnection* connection) {
 QuicConnection::PacketContent QuicConnectionPeer::GetCurrentPacketContent(
     QuicConnection* connection) {
   return connection->current_packet_content_;
-}
-
-// static
-void QuicConnectionPeer::SetLastHeaderFormat(QuicConnection* connection,
-                                             PacketHeaderFormat format) {
-  connection->last_header_.form = format;
 }
 
 // static
@@ -332,10 +336,8 @@ void QuicConnectionPeer::SetAddressValidated(QuicConnection* connection) {
 
 // static
 void QuicConnectionPeer::SendConnectionClosePacket(
-    QuicConnection* connection,
-    QuicIetfTransportErrorCodes ietf_error,
-    QuicErrorCode error,
-    const std::string& details) {
+    QuicConnection* connection, QuicIetfTransportErrorCodes ietf_error,
+    QuicErrorCode error, const std::string& details) {
   connection->SendConnectionClosePacket(error, ietf_error, details);
 }
 
@@ -401,9 +403,14 @@ QuicIdleNetworkDetector& QuicConnectionPeer::GetIdleNetworkDetector(
 }
 
 // static
+QuicAlarm* QuicConnectionPeer::GetMultiPortProbingAlarm(
+    QuicConnection* connection) {
+  return connection->multi_port_probing_alarm_.get();
+}
+
+// static
 void QuicConnectionPeer::SetServerConnectionId(
-    QuicConnection* connection,
-    const QuicConnectionId& server_connection_id) {
+    QuicConnection* connection, const QuicConnectionId& server_connection_id) {
   connection->default_path_.server_connection_id = server_connection_id;
   connection->InstallInitialCrypters(server_connection_id);
 }
@@ -424,8 +431,7 @@ void QuicConnectionPeer::SendPing(QuicConnection* connection) {
 
 // static
 void QuicConnectionPeer::SetLastPacketDestinationAddress(
-    QuicConnection* connection,
-    const QuicSocketAddress& address) {
+    QuicConnection* connection, const QuicSocketAddress& address) {
   connection->last_received_packet_info_.destination_address = address;
 }
 
@@ -433,6 +439,12 @@ void QuicConnectionPeer::SetLastPacketDestinationAddress(
 QuicPathValidator* QuicConnectionPeer::path_validator(
     QuicConnection* connection) {
   return &connection->path_validator_;
+}
+
+// static
+QuicByteCount QuicConnectionPeer::BytesReceivedOnDefaultPath(
+    QuicConnection* connection) {
+  return connection->default_path_.bytes_received_before_address_validation;
 }
 
 //  static
@@ -467,8 +479,7 @@ bool QuicConnectionPeer::IsAlternativePathValidated(
 
 // static
 bool QuicConnectionPeer::IsAlternativePath(
-    QuicConnection* connection,
-    const QuicSocketAddress& self_address,
+    QuicConnection* connection, const QuicSocketAddress& self_address,
     const QuicSocketAddress& peer_address) {
   return connection->IsAlternativePath(self_address, peer_address);
 }
@@ -489,6 +500,13 @@ void QuicConnectionPeer::ResetPeerIssuedConnectionIdManager(
 QuicConnection::PathState* QuicConnectionPeer::GetDefaultPath(
     QuicConnection* connection) {
   return &connection->default_path_;
+}
+
+// static
+bool QuicConnectionPeer::IsDefaultPath(QuicConnection* connection,
+                                       const QuicSocketAddress& self_address,
+                                       const QuicSocketAddress& peer_address) {
+  return connection->IsDefaultPath(self_address, peer_address);
 }
 
 // static
@@ -532,7 +550,7 @@ QuicConnectionPeer::MakeSelfIssuedConnectionIdManager(
 // static
 void QuicConnectionPeer::SetLastDecryptedLevel(QuicConnection* connection,
                                                EncryptionLevel level) {
-  connection->last_decrypted_packet_level_ = level;
+  connection->last_received_packet_info_.decrypted_level = level;
 }
 
 // static
@@ -544,6 +562,66 @@ QuicCoalescedPacket& QuicConnectionPeer::GetCoalescedPacket(
 // static
 void QuicConnectionPeer::FlushCoalescedPacket(QuicConnection* connection) {
   connection->FlushCoalescedPacket();
+}
+
+// static
+void QuicConnectionPeer::SetInProbeTimeOut(QuicConnection* connection,
+                                           bool value) {
+  connection->in_probe_time_out_ = value;
+}
+
+// static
+QuicSocketAddress QuicConnectionPeer::GetReceivedServerPreferredAddress(
+    QuicConnection* connection) {
+  return connection->received_server_preferred_address_;
+}
+
+// static
+QuicSocketAddress QuicConnectionPeer::GetSentServerPreferredAddress(
+    QuicConnection* connection) {
+  return connection->sent_server_preferred_address_;
+}
+
+// static
+bool QuicConnectionPeer::TestLastReceivedPacketInfoDefaults() {
+  QuicConnection::ReceivedPacketInfo info{QuicTime::Zero()};
+  QUIC_DVLOG(2)
+      << "QuicConnectionPeer::TestLastReceivedPacketInfoDefaults"
+      << " dest_addr passed: "
+      << (info.destination_address == QuicSocketAddress())
+      << " source_addr passed: " << (info.source_address == QuicSocketAddress())
+      << " receipt_time passed: " << (info.receipt_time == QuicTime::Zero())
+      << " received_bytes_counted passed: " << !info.received_bytes_counted
+      << " destination_connection_id passed: "
+      << (info.destination_connection_id == QuicConnectionId())
+      << " length passed: " << (info.length == 0)
+      << " decrypted passed: " << !info.decrypted << " decrypted_level passed: "
+      << (info.decrypted_level == ENCRYPTION_INITIAL)
+      << " frames.empty passed: " << info.frames.empty()
+      << " ecn_codepoint passed: " << (info.ecn_codepoint == ECN_NOT_ECT)
+      << " sizeof(ReceivedPacketInfo) passed: "
+      << (sizeof(size_t) != 8 ||
+          sizeof(QuicConnection::ReceivedPacketInfo) == 280);
+  return info.destination_address == QuicSocketAddress() &&
+         info.source_address == QuicSocketAddress() &&
+         info.receipt_time == QuicTime::Zero() &&
+         !info.received_bytes_counted && info.length == 0 &&
+         info.destination_connection_id == QuicConnectionId() &&
+         !info.decrypted && info.decrypted_level == ENCRYPTION_INITIAL &&
+         // There's no simple way to compare all the values of QuicPacketHeader.
+         info.frames.empty() && info.ecn_codepoint == ECN_NOT_ECT &&
+         info.actual_destination_address == QuicSocketAddress() &&
+         // If the condition below fails, the contents of ReceivedPacketInfo
+         // have changed. Please add the relevant conditions and update the
+         // length below.
+         (sizeof(size_t) != 8 ||
+          sizeof(QuicConnection::ReceivedPacketInfo) == 280);
+}
+
+// static
+void QuicConnectionPeer::DisableEcnCodepointValidation(
+    QuicConnection* connection) {
+  connection->disable_ecn_codepoint_validation_ = true;
 }
 
 }  // namespace test

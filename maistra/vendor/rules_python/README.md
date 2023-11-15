@@ -6,9 +6,8 @@
 ## Overview
 
 This repository is the home of the core Python rules -- `py_library`,
-`py_binary`, `py_test`, and related symbols that provide the basis for Python
-support in Bazel. It also contains packaging rules for integrating with PyPI
-(`pip`). Documentation lives in the
+`py_binary`, `py_test`, `py_proto_library`, and related symbols that provide the basis for Python
+support in Bazel. It also contains package installation rules for integrating with PyPI and other package indices. Documentation lives in the
 [`docs/`](https://github.com/bazelbuild/rules_python/tree/main/docs)
 directory and in the
 [Bazel Build Encyclopedia](https://docs.bazel.build/versions/master/be/python.html).
@@ -24,9 +23,8 @@ Once they are fully migrated to rules_python, they may evolve at a different
 rate, but this repository will still follow
 [semantic versioning](https://semver.org).
 
-The packaging rules (`pip_install`, etc.) are less stable. We may make breaking
-changes as they evolve. There are no guarantees for rules underneath the
-`experimental/` directory.
+The package installation rules (`pip_install`, `pip_parse` etc.) are less stable. We may make breaking
+changes as they evolve.
 
 This repository is maintained by the Bazel community. Neither Google, nor the
 Bazel team, provides support for the code. However, this repository is part of
@@ -54,18 +52,21 @@ http_archive(
 )
 ```
 
-To register a hermetic Python toolchain rather than rely on whatever is already on the machine, you can add to the `WORKSPACE` file:
+### Toolchain registration
+
+To register a hermetic Python toolchain rather than rely on a system-installed interpreter for runtime execution, you can add to the `WORKSPACE` file:
 
 ```python
 load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 
 python_register_toolchains(
-    name = "python310",
+    name = "python3_9",
     # Available versions are listed in @rules_python//python:versions.bzl.
-    python_version = "3.10",
+    # We recommend using the same version your team is already standardized on.
+    python_version = "3.9",
 )
 
-load("@python310_resolved_interpreter//:defs.bzl", "interpreter")
+load("@python3_9//:defs.bzl", "interpreter")
 
 load("@rules_python//python:pip.bzl", "pip_parse")
 
@@ -76,8 +77,16 @@ pip_parse(
 )
 ```
 
-> You may find some quirks while using this toolchain.
-> Please refer to [this link](https://python-build-standalone.readthedocs.io/en/latest/quirks.html) for details.
+After registration, your Python targets will use the toolchain's interpreter during execution, but a system-installed interpreter
+is still used to 'bootstrap' Python targets (see https://github.com/bazelbuild/rules_python/issues/691).
+You may also find some quirks while using this toolchain. Please refer to [python-build-standalone documentation's _Quirks_ section](https://python-build-standalone.readthedocs.io/en/latest/quirks.html) for details.
+
+### Toolchain usage in other rules
+
+Python toolchains can be utilised in other bazel rules, such as `genrule()`, by adding the `toolchains=["@rules_python//python:current_py_toolchain"]` attribute. The path to the python interpreter can be obtained by using the `$(PYTHON2)` and `$(PYTHON3)` ["Make" Variables](https://bazel.build/reference/be/make-variables). See the [`test_current_py_toolchain`](tests/load_from_macro/BUILD.bazel) target for an example.
+
+
+### "Hello World"
 
 Once you've imported the rule set into your `WORKSPACE` using any of these
 methods, you can then load the core rules in your `BUILD` files with:
@@ -91,14 +100,14 @@ py_binary(
 )
 ```
 
-## Using the packaging rules
+## Using the package installation rules
 
 Usage of the packaging rules involves two main steps.
 
-1. [Installing `pip` dependencies](#installing-pip-dependencies)
-2. [Consuming `pip` dependencies](#consuming-pip-dependencies)
+1. [Installing third_party packages](#installing-third_party-packages)
+2. [Using third_party packages as dependencies](#using-third_party-packages-as-dependencies)
 
-The packaging rules create two kinds of repositories: A central external repo that holds
+The package installation rules create two kinds of repositories: A central external repo that holds
 downloaded wheel files, and individual external repos for each wheel's extracted
 contents. Users only need to interact with the central external repo; the wheel repos
 are essentially an implementation detail. The central external repo provides a
@@ -106,53 +115,10 @@ are essentially an implementation detail. The central external repo provides a
 `BUILD` files that translates a pip package name into the label of a `py_library`
 target in the appropriate wheel repo.
 
-### Installing `pip` dependencies
+### Installing third_party packages
 
-To add pip dependencies to your `WORKSPACE`, load the `pip_install` function, and call it to create the
+To add pip dependencies to your `WORKSPACE`, load the `pip_parse` function, and call it to create the
 central external repo and individual wheel external repos.
-
-
-```python
-load("@rules_python//python:pip.bzl", "pip_install")
-
-# Create a central external repo, @my_deps, that contains Bazel targets for all the
-# third-party packages specified in the requirements.txt file.
-pip_install(
-   name = "my_deps",
-   requirements = "//path/to:requirements.txt",
-)
-```
-
-Note that since `pip_install` is a repository rule and therefore executes pip at WORKSPACE-evaluation time, Bazel has no
-information about the Python toolchain and cannot enforce that the interpreter
-used to invoke pip matches the interpreter used to run `py_binary` targets. By
-default, `pip_install` uses the system command `"python3"`. This can be overridden by passing the
-`python_interpreter` attribute or `python_interpreter_target` attribute to `pip_install`.
-
-You can have multiple `pip_install`s in the same workspace. This will create multiple external repos that have no relation to
-one another, and may result in downloading the same wheels multiple times.
-
-As with any repository rule, if you would like to ensure that `pip_install` is
-re-executed in order to pick up a non-hermetic change to your environment (e.g.,
-updating your system `python` interpreter), you can force it to re-execute by running
-`bazel sync --only [pip_install name]`.
-
-### Fetch `pip` dependencies lazily
-
-One pain point with `pip_install` is the need to download all dependencies resolved by
-your requirements.txt before the bazel analysis phase can start. For large python monorepos
-this can take a long time, especially on slow connections.
-
-`pip_parse` provides a solution to this problem. If you can provide a lock
-file of all your python dependencies `pip_parse` will translate each requirement into its own external repository.
-Bazel will only fetch/build wheels for the requirements in the subgraph of your build target.
-
-There are API differences between `pip_parse` and `pip_install`:
-1. `pip_parse` requires a fully resolved lock file of your python dependencies. You can generate this by using the `compile_pip_requirements` rule,
-   running `pip-compile` directly, or using virtualenv and `pip freeze`. `pip_parse` uses a label argument called `requirements_lock` instead of
-   `requirements` to make this distinction clear.
-2. `pip_parse` translates your requirements into a starlark macro called `install_deps`. You must call this macro in your WORKSPACE to
-   declare your dependencies.
 
 
 ```python
@@ -164,14 +130,33 @@ pip_parse(
    name = "my_deps",
    requirements_lock = "//path/to:requirements_lock.txt",
 )
-
 # Load the starlark macro which will define your dependencies.
 load("@my_deps//:requirements.bzl", "install_deps")
 # Call it to define repos for your requirements.
 install_deps()
 ```
 
-### Consuming `pip` dependencies
+Note that since `pip_parse` is a repository rule and therefore executes pip at WORKSPACE-evaluation time, Bazel has no
+information about the Python toolchain and cannot enforce that the interpreter
+used to invoke pip matches the interpreter used to run `py_binary` targets. By
+default, `pip_parse` uses the system command `"python3"`. This can be overridden by passing the
+`python_interpreter` attribute or `python_interpreter_target` attribute to `pip_parse`.
+
+You can have multiple `pip_parse`s in the same workspace. This will create multiple external repos that have no relation to
+one another, and may result in downloading the same wheels multiple times.
+
+As with any repository rule, if you would like to ensure that `pip_parse` is
+re-executed in order to pick up a non-hermetic change to your environment (e.g.,
+updating your system `python` interpreter), you can force it to re-execute by running
+`bazel sync --only [pip_parse name]`.
+
+Note: The `pip_install` rule is deprecated. `pip_parse` offers identical functionality and both `pip_install`
+and `pip_parse` now have the same implementation. The name `pip_install` may be removed in a future version of the rules.
+The maintainers have taken all reasonable efforts to faciliate a smooth transition, but some users of `pip_install` will
+need to replace their existing `requirements.txt` with a fully resolved set of dependencies using a tool such as
+`pip-tools` or the `compile_pip_requirements` repository rule.
+
+### Using third_party packages as dependencies
 
 Each extracted wheel repo contains a `py_library` target representing
 the wheel's contents. There are two ways to access this library. The
@@ -225,23 +210,10 @@ For `pip_install` the labels are instead of the form
 
 [requirements-drawbacks]: https://github.com/bazelbuild/rules_python/issues/414
 
-#### 'Extras' requirement consumption
+#### 'Extras' dependencies
 
-When using the legacy `pip_import`, you must specify the extra in the argument to the `requirement` macro. For example:
-
-```python
-py_library(
-    name = "mylib",
-    srcs = ["mylib.py"],
-    deps = [
-        requirement("useful_dep[some_extra]"),
-    ]
-)
-```
-
-If using `pip_install` or `pip_parse`, any extras specified in the requirements file will be automatically
-linked as a dependency of the package so that you don't need to specify the extra. In the example above,
-you'd just put `requirement("useful_dep")`.
+Any 'extras' specified in the requirements lock-file will be automatically added as transitive dependencies of the 
+package. In the example above, you'd just put `requirement("useful_dep")`.
 
 ### Consuming Wheel Dists Directly
 

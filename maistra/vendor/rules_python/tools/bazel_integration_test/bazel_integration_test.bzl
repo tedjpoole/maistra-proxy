@@ -1,9 +1,23 @@
+# Copyright 2023 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 "Define a rule for running bazel test under Bazel"
 
-load("//:version.bzl", "SUPPORTED_BAZEL_VERSIONS")
+load("//:version.bzl", "SUPPORTED_BAZEL_VERSIONS", "bazel_version_to_binary_label")
 load("//python:defs.bzl", "py_test")
 
-BAZEL_BINARY = "@build_bazel_bazel_%s//:bazel_binary" % SUPPORTED_BAZEL_VERSIONS[0].replace(".", "_")
+BAZEL_BINARY = bazel_version_to_binary_label(SUPPORTED_BAZEL_VERSIONS[0])
 
 _ATTRS = {
     "bazel_binary": attr.label(
@@ -18,6 +32,10 @@ It is assumed by the test runner that the bazel binary is found at label_workspa
 
 Note that if a command contains a bare `--` argument, the --test_arg passed to Bazel will appear before it.
 """,
+    ),
+    "bzlmod": attr.bool(
+        default = False,
+        doc = """Whether the test uses bzlmod.""",
     ),
     "workspace_files": attr.label(
         doc = """A filegroup of all files in the workspace-under-test necessary to run the test.""",
@@ -44,12 +62,14 @@ You probably need to run
 {{
     "workspaceRoot": "{TMPL_workspace_root}",
     "bazelBinaryWorkspace": "{TMPL_bazel_binary_workspace}",
-    "bazelCommands": [ {TMPL_bazel_commands} ]
+    "bazelCommands": [ {TMPL_bazel_commands} ],
+    "bzlmod": {TMPL_bzlmod}
 }}
 """.format(
             TMPL_workspace_root = ctx.files.workspace_files[0].dirname,
             TMPL_bazel_binary_workspace = ctx.attr.bazel_binary.label.workspace_name,
             TMPL_bazel_commands = ", ".join(["\"%s\"" % s for s in ctx.attr.bazel_commands]),
+            TMPL_bzlmod = str(ctx.attr.bzlmod).lower(),
         ),
     )
 
@@ -64,11 +84,13 @@ _config = rule(
     attrs = _ATTRS,
 )
 
-def bazel_integration_test(name, **kwargs):
+def bazel_integration_test(name, override_bazel_version = None, bzlmod = False, **kwargs):
     """Wrapper macro to set default srcs and run a py_test with config
 
     Args:
         name: name of the resulting py_test
+        override_bazel_version: bazel version to use in test
+        bzlmod: whether the test uses bzlmod
         **kwargs: additional attributes like timeout and visibility
     """
 
@@ -83,10 +105,16 @@ def bazel_integration_test(name, **kwargs):
     )
     workspace_files = kwargs.pop("workspace_files", "_%s_sources" % name)
 
+    bazel_binary = BAZEL_BINARY if not override_bazel_version else bazel_version_to_binary_label(override_bazel_version)
     _config(
         name = "_%s_config" % name,
         workspace_files = workspace_files,
+        bazel_binary = bazel_binary,
+        bzlmod = bzlmod,
     )
+
+    tags = kwargs.pop("tags", [])
+    tags.append("integration-test")
 
     py_test(
         name = name,
@@ -95,10 +123,11 @@ def bazel_integration_test(name, **kwargs):
         args = [native.package_name() + "/_%s_config.json" % name],
         deps = [Label("//python/runfiles")],
         data = [
-            BAZEL_BINARY,
+            bazel_binary,
             "//:distribution",
             "_%s_config" % name,
             workspace_files,
         ],
+        tags = tags,
         **kwargs
     )

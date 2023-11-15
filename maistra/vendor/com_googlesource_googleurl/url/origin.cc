@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,21 +8,23 @@
 
 #include <algorithm>
 #include <ostream>
-#include <vector>
+#include <string>
+#include <tuple>
+#include <utility>
 
 #include "base/base64.h"
+#include "polyfills/base/check.h"
 #include "polyfills/base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/span.h"
+#include "base/debug/crash_logging.h"
 #include "base/pickle.h"
 #include "base/strings/strcat.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
-#include "base/strings/string_util.h"
+#include "base/unguessable_token.h"
 #include "polyfills/third_party/perfetto/include/perfetto/tracing/traced_value.h"
 #include "url/gurl.h"
-#include "url/url_canon.h"
-#include "url/url_canon_stdstring.h"
+#include "url/scheme_host_port.h"
 #include "url/url_constants.h"
 #include "url/url_util.h"
 
@@ -150,11 +152,8 @@ GURL Origin::GetURL() const {
   return tuple_.GetURL();
 }
 
-absl::optional<gurl_base::UnguessableToken> Origin::GetNonceForSerialization()
-    const {
-  // TODO(nasko): Consider not making a copy here, but return a reference to
-  // the nonce.
-  return nonce_ ? absl::make_optional(nonce_->token()) : absl::nullopt;
+const gurl_base::UnguessableToken* Origin::GetNonceForSerialization() const {
+  return nonce_ ? &nonce_->token() : nullptr;
 }
 
 bool Origin::IsSameOriginWith(const Origin& other) const {
@@ -332,9 +331,8 @@ absl::optional<std::string> Origin::SerializeWithNonceImpl() const {
     pickle.WriteUInt64(0);
   }
 
-  gurl_base::span<const uint8_t> data(
-      static_cast<const uint8_t*>(pickle.data()),
-      static_cast<const uint8_t*>(pickle.data()) + pickle.size());
+  gurl_base::span<const uint8_t> data(static_cast<const uint8_t*>(pickle.data()),
+                                 pickle.size());
   // Base64 encode the data to make it nicer to play with.
   return gurl_base::Base64Encode(data);
 }

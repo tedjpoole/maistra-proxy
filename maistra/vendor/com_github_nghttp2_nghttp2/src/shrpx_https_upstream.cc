@@ -66,13 +66,26 @@ constexpr llhttp_settings_t htp_hooks = {
     htp_msg_begin,       // llhttp_cb      on_message_begin;
     htp_uricb,           // llhttp_data_cb on_url;
     nullptr,             // llhttp_data_cb on_status;
+    nullptr,             // llhttp_data_cb on_method;
+    nullptr,             // llhttp_data_cb on_version;
     htp_hdr_keycb,       // llhttp_data_cb on_header_field;
     htp_hdr_valcb,       // llhttp_data_cb on_header_value;
+    nullptr,             // llhttp_data_cb on_chunk_extension_name;
+    nullptr,             // llhttp_data_cb on_chunk_extension_value;
     htp_hdrs_completecb, // llhttp_cb      on_headers_complete;
     htp_bodycb,          // llhttp_data_cb on_body;
     htp_msg_completecb,  // llhttp_cb      on_message_complete;
+    nullptr,             // llhttp_cb      on_url_complete;
+    nullptr,             // llhttp_cb      on_status_complete;
+    nullptr,             // llhttp_cb      on_method_complete;
+    nullptr,             // llhttp_cb      on_version_complete;
+    nullptr,             // llhttp_cb      on_header_field_complete;
+    nullptr,             // llhttp_cb      on_header_value_complete;
+    nullptr,             // llhttp_cb      on_chunk_extension_name_complete;
+    nullptr,             // llhttp_cb      on_chunk_extension_value_complete;
     nullptr,             // llhttp_cb      on_chunk_header;
     nullptr,             // llhttp_cb      on_chunk_complete;
+    nullptr,             // llhttp_cb      on_reset;
 };
 } // namespace
 
@@ -328,6 +341,11 @@ int htp_hdrs_completecb(llhttp_t *htp) {
 
   auto downstream = upstream->get_downstream();
   auto &req = downstream->request();
+  auto &balloc = downstream->get_block_allocator();
+
+  for (auto &kv : req.fs.headers()) {
+    kv.value = util::rstrip(balloc, kv.value);
+  }
 
   auto lgconf = log_config();
   lgconf->update_tstamp(std::chrono::system_clock::now());
@@ -397,7 +415,6 @@ int htp_hdrs_completecb(llhttp_t *htp) {
   downstream->inspect_http1_request();
 
   auto faddr = handler->get_upstream_addr();
-  auto &balloc = downstream->get_block_allocator();
   auto config = get_config();
 
   if (method != HTTP_CONNECT) {
@@ -433,11 +450,17 @@ int htp_hdrs_completecb(llhttp_t *htp) {
 
   downstream->set_request_state(DownstreamState::HEADER_COMPLETE);
 
+  auto &resp = downstream->response();
+
+  if (config->http.require_http_scheme &&
+      !http::check_http_scheme(req.scheme, handler->get_ssl() != nullptr)) {
+    resp.http_status = 400;
+    return -1;
+  }
+
 #ifdef HAVE_MRUBY
   auto worker = handler->get_worker();
   auto mruby_ctx = worker->get_mruby_context();
-
-  auto &resp = downstream->response();
 
   if (mruby_ctx->run_on_request_proc(downstream) != 0) {
     resp.http_status = 500;
@@ -457,7 +480,9 @@ int htp_hdrs_completecb(llhttp_t *htp) {
     return 0;
   }
 
+#ifdef HAVE_MRUBY
   DownstreamConnection *dconn_ptr;
+#endif // HAVE_MRUBY
 
   for (;;) {
     auto dconn = handler->get_downstream_connection(rv, downstream);
@@ -547,6 +572,13 @@ int htp_msg_completecb(llhttp_t *htp) {
   }
   auto handler = upstream->get_client_handler();
   auto downstream = upstream->get_downstream();
+  auto &req = downstream->request();
+  auto &balloc = downstream->get_block_allocator();
+
+  for (auto &kv : req.fs.trailers()) {
+    kv.value = util::rstrip(balloc, kv.value);
+  }
+
   downstream->set_request_state(DownstreamState::MSG_COMPLETE);
   rv = downstream->end_upload_data();
   if (rv != 0) {

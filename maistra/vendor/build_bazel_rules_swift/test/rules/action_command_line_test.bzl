@@ -77,8 +77,10 @@ def _action_command_line_test_impl(ctx):
     # end and look for arguments followed by a trailing space so that having
     # `-foo` in the expected list doesn't match `-foobar`, for example.
     concatenated_args = " ".join(action.argv) + " "
+    bin_dir = analysistest.target_bin_dir_path(env)
     for expected in ctx.attr.expected_argv:
-        if expected + " " not in concatenated_args:
+        expected = expected.replace("$(BIN_DIR)", bin_dir)
+        if expected + " " not in concatenated_args and expected + "=" not in concatenated_args:
             unittest.fail(
                 env,
                 "{}expected argv to contain '{}', but it did not: {}".format(
@@ -88,7 +90,8 @@ def _action_command_line_test_impl(ctx):
                 ),
             )
     for not_expected in ctx.attr.not_expected_argv:
-        if not_expected + " " in concatenated_args:
+        not_expected = not_expected.replace("$(BIN_DIR)", bin_dir)
+        if not_expected + " " in concatenated_args or not_expected + "=" in concatenated_args:
             unittest.fail(
                 env,
                 "{}expected argv to not contain '{}', but it did: {}".format(

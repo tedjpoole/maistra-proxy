@@ -10,7 +10,8 @@ proto_library(
 
 go_proto_library(
     name = "packageless_go_proto",
-    importpath = "github.com/lyft/protoc-gen-star/testdata/graph/packageless",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/graph/packageless",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/graph/packageless"],
     proto = ":packageless_proto",
     visibility = ["//visibility:public"],
 )
@@ -18,7 +19,8 @@ go_proto_library(
 go_library(
     name = "packageless",
     embed = [":packageless_go_proto"],
-    importpath = "github.com/lyft/protoc-gen-star/testdata/graph/packageless",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/graph/packageless",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/graph/packageless"],
     visibility = ["//visibility:public"],
 )
 

@@ -64,13 +64,13 @@ java_grpc_library(
 
 java_gapic_library(
     name = "websecurityscanner_java_gapic",
-    src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
-    package = "google.cloud.websecurityscanner.v1alpha",
-    service_yaml = "websecurityscanner_v1alpha.yaml",
+    srcs = [":websecurityscanner_proto_with_info"],
+    grpc_service_config = "websecurityscanner_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":websecurityscanner_java_grpc",
     ],
+    transport = "grpc+rest",
     deps = [
         ":websecurityscanner_java_proto",
     ],
@@ -79,6 +79,7 @@ java_gapic_library(
 java_gapic_test(
     name = "websecurityscanner_java_gapic_test_suite",
     test_classes = [
+        "com.google.cloud.websecurityscanner.v1alpha.WebSecurityScannerClientHttpJsonTest",
         "com.google.cloud.websecurityscanner.v1alpha.WebSecurityScannerClientTest",
     ],
     runtime_deps = [":websecurityscanner_java_gapic_test"],
@@ -87,6 +88,8 @@ java_gapic_test(
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
     name = "google-cloud-websecurityscanner-v1alpha-java",
+    include_samples = True,
+    transport = "grpc+rest",
     deps = [
         ":websecurityscanner_java_gapic",
         ":websecurityscanner_java_grpc",
@@ -118,11 +121,12 @@ go_proto_library(
 
 go_gapic_library(
     name = "websecurityscanner_go_gapic",
-    src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
-    importpath = "cloud.google.com/go/cloud/websecurityscanner/apiv1alpha",
-    package = "google.cloud.websecurityscanner.v1alpha",
+    srcs = [":websecurityscanner_proto_with_info"],
+    grpc_service_config = "websecurityscanner_grpc_service_config.json",
+    importpath = "cloud.google.com/go/cloud/websecurityscanner/apiv1alpha;websecurityscanner",
+    rest_numeric_enums = True,
     service_yaml = "websecurityscanner_v1alpha.yaml",
+    transport = "grpc+rest",
     deps = [
         ":websecurityscanner_go_proto",
     ],
@@ -140,7 +144,6 @@ go_gapic_assembly_pkg(
     name = "gapi-cloud-websecurityscanner-v1alpha-go",
     deps = [
         ":websecurityscanner_go_gapic",
-        ":websecurityscanner_go_gapic_srcjar-smoke-test.srcjar",
         ":websecurityscanner_go_gapic_srcjar-test.srcjar",
         ":websecurityscanner_go_proto",
     ],
@@ -151,58 +154,33 @@ go_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
-    "moved_proto_library",
     "py_gapic_assembly_pkg",
     "py_gapic_library",
-    "py_grpc_library",
-    "py_proto_library",
-)
-
-moved_proto_library(
-    name = "websecurityscanner_moved_proto",
-    srcs = [":websecurityscanner_proto"],
-    deps = [
-        "//google/api:annotations_proto",
-        "//google/api:client_proto",
-        "//google/api:field_behavior_proto",
-        "//google/api:resource_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:timestamp_proto",
-    ],
-)
-
-py_proto_library(
-    name = "websecurityscanner_py_proto",
-    plugin = "@protoc_docs_plugin//:docs_plugin",
-    deps = [":websecurityscanner_moved_proto"],
-)
-
-py_grpc_library(
-    name = "websecurityscanner_py_grpc",
-    srcs = [":websecurityscanner_moved_proto"],
-    deps = [":websecurityscanner_py_proto"],
+    "py_test",
 )
 
 py_gapic_library(
     name = "websecurityscanner_py_gapic",
-    src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
-    package = "google.cloud.websecurityscanner.v1alpha",
-    service_yaml = "websecurityscanner_v1alpha.yaml",
-    deps = [
-        ":websecurityscanner_py_grpc",
-        ":websecurityscanner_py_proto",
-    ],
+    srcs = [":websecurityscanner_proto"],
+    grpc_service_config = "websecurityscanner_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc",
 )
 
-# Open Source Packages
+py_test(
+    name = "websecurityscanner_py_gapic_test",
+    srcs = [
+        "websecurityscanner_py_gapic_pytest.py",
+        "websecurityscanner_py_gapic_test.py",
+    ],
+    legacy_create_init = False,
+    deps = [":websecurityscanner_py_gapic"],
+)
+
 py_gapic_assembly_pkg(
     name = "websecurityscanner-v1alpha-py",
     deps = [
         ":websecurityscanner_py_gapic",
-        ":websecurityscanner_py_grpc",
-        ":websecurityscanner_py_proto",
     ],
 )
 
@@ -230,10 +208,10 @@ php_grpc_library(
 
 php_gapic_library(
     name = "websecurityscanner_php_gapic",
-    src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
-    package = "google.cloud.websecurityscanner.v1alpha",
-    service_yaml = "websecurityscanner_v1alpha.yaml",
+    srcs = [":websecurityscanner_proto_with_info"],
+    grpc_service_config = "websecurityscanner_grpc_service_config.json",
+    rest_numeric_enums = True,
+    transport = "grpc+rest",
     deps = [
         ":websecurityscanner_php_grpc",
         ":websecurityscanner_php_proto",
@@ -261,10 +239,14 @@ load(
 
 nodejs_gapic_library(
     name = "websecurityscanner_nodejs_gapic",
+    package_name = "@google-cloud/web-security-scanner",
     src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "websecurityscanner_grpc_service_config.json",
     package = "google.cloud.websecurityscanner.v1alpha",
+    rest_numeric_enums = True,
     service_yaml = "websecurityscanner_v1alpha.yaml",
+    transport = "grpc+rest",
     deps = [],
 )
 
@@ -281,8 +263,8 @@ nodejs_gapic_assembly_pkg(
 ##############################################################################
 load(
     "@com_google_googleapis_imports//:imports.bzl",
+    "ruby_cloud_gapic_library",
     "ruby_gapic_assembly_pkg",
-    "ruby_gapic_library",
     "ruby_grpc_library",
     "ruby_proto_library",
 )
@@ -298,12 +280,11 @@ ruby_grpc_library(
     deps = [":websecurityscanner_ruby_proto"],
 )
 
-ruby_gapic_library(
+ruby_cloud_gapic_library(
     name = "websecurityscanner_ruby_gapic",
-    src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
-    package = "google.cloud.websecurityscanner.v1alpha",
-    service_yaml = "websecurityscanner_v1alpha.yaml",
+    srcs = [":websecurityscanner_proto_with_info"],
+    extra_protoc_parameters = ["ruby-cloud-gem-name=google-cloud-websecurityscanner-v1alpha"],
+    rest_numeric_enums = True,
     deps = [
         ":websecurityscanner_ruby_grpc",
         ":websecurityscanner_ruby_proto",
@@ -344,9 +325,10 @@ csharp_grpc_library(
 
 csharp_gapic_library(
     name = "websecurityscanner_csharp_gapic",
-    src = ":websecurityscanner_proto_with_info",
-    gapic_yaml = "websecurityscanner_gapic.yaml",
-    package = "google.cloud.websecurityscanner.v1alpha",
+    srcs = [":websecurityscanner_proto_with_info"],
+    common_resources_config = "@gax_dotnet//:Google.Api.Gax/ResourceNames/CommonResourcesConfig.json",
+    grpc_service_config = "websecurityscanner_grpc_service_config.json",
+    rest_numeric_enums = True,
     service_yaml = "websecurityscanner_v1alpha.yaml",
     deps = [
         ":websecurityscanner_csharp_grpc",

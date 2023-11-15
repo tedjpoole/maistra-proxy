@@ -34,12 +34,9 @@ const float kRenoBeta = 0.7f;  // Reno backoff factor.
 class TcpCubicSenderBytesPeer : public TcpCubicSenderBytes {
  public:
   TcpCubicSenderBytesPeer(const QuicClock* clock, bool reno)
-      : TcpCubicSenderBytes(clock,
-                            &rtt_stats_,
-                            reno,
+      : TcpCubicSenderBytes(clock, &rtt_stats_, reno,
                             kInitialCongestionWindowPackets,
-                            kMaxCongestionWindowPackets,
-                            &stats_) {}
+                            kMaxCongestionWindowPackets, &stats_) {}
 
   const HybridSlowStart& hybrid_slow_start() const {
     return hybrid_slow_start_;
@@ -92,7 +89,7 @@ class TcpCubicSenderBytesTest : public QuicTest {
                       QuicTime::Zero()));
     }
     sender_->OnCongestionEvent(true, bytes_in_flight_, clock_.Now(),
-                               acked_packets, lost_packets);
+                               acked_packets, lost_packets, 0, 0);
     bytes_in_flight_ -= n * kDefaultTCPMSS;
     clock_.AdvanceTime(one_ms_);
   }
@@ -108,7 +105,7 @@ class TcpCubicSenderBytesTest : public QuicTest {
           LostPacket(QuicPacketNumber(acked_packet_number_), packet_length));
     }
     sender_->OnCongestionEvent(false, bytes_in_flight_, clock_.Now(),
-                               acked_packets, lost_packets);
+                               acked_packets, lost_packets, 0, 0);
     bytes_in_flight_ -= n * packet_length;
   }
 
@@ -119,7 +116,7 @@ class TcpCubicSenderBytesTest : public QuicTest {
     lost_packets.push_back(
         LostPacket(QuicPacketNumber(packet_number), kDefaultTCPMSS));
     sender_->OnCongestionEvent(false, bytes_in_flight_, clock_.Now(),
-                               acked_packets, lost_packets);
+                               acked_packets, lost_packets, 0, 0);
     bytes_in_flight_ -= kDefaultTCPMSS;
   }
 
@@ -548,7 +545,6 @@ TEST_F(TcpCubicSenderBytesTest, MultipleLossesInOneWindow) {
 }
 
 TEST_F(TcpCubicSenderBytesTest, ConfigureMaxInitialWindow) {
-  SetQuicReloadableFlag(quic_unified_iw_options, false);
   QuicConfig config;
 
   // Verify that kCOPT: kIW10 forces the congestion window to the default of 10.
@@ -791,13 +787,13 @@ TEST_F(TcpCubicSenderBytesTest, DefaultMaxCwnd) {
   AckedPacketVector acked_packets;
   LostPacketVector missing_packets;
   QuicPacketCount max_congestion_window =
-      GetQuicFlag(FLAGS_quic_max_congestion_window);
+      GetQuicFlag(quic_max_congestion_window);
   for (uint64_t i = 1; i < max_congestion_window; ++i) {
     acked_packets.clear();
     acked_packets.push_back(
         AckedPacket(QuicPacketNumber(i), 1350, QuicTime::Zero()));
     sender->OnCongestionEvent(true, sender->GetCongestionWindow(), clock_.Now(),
-                              acked_packets, missing_packets);
+                              acked_packets, missing_packets, 0, 0);
   }
   EXPECT_EQ(max_congestion_window,
             sender->GetCongestionWindow() / kDefaultTCPMSS);

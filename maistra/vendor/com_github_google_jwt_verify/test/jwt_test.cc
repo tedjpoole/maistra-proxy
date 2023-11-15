@@ -64,7 +64,7 @@ TEST(JwtParseTest, GoodJwt) {
 
   StructUtils payload_getter(jwt.payload_pb_);
   uint64_t int_value;
-  EXPECT_EQ(payload_getter.GetInt64("custompayload", &int_value),
+  EXPECT_EQ(payload_getter.GetUInt64("custompayload", &int_value),
             StructUtils::OK);
   EXPECT_EQ(int_value, 1234);
 }
@@ -81,7 +81,7 @@ TEST(JwtParseTest, Copy) {
   std::vector<std::reference_wrapper<Jwt>> jwts{constructed, copied};
 
   for (auto jwt = jwts.begin(); jwt != jwts.end(); ++jwt) {
-    Jwt &ref = (*jwt);
+    Jwt& ref = (*jwt);
     EXPECT_EQ(ref.alg_, original.alg_);
     EXPECT_EQ(ref.kid_, original.kid_);
     EXPECT_EQ(ref.iss_, original.iss_);
@@ -304,6 +304,53 @@ TEST(JwtParseTest, TestParsePayloadIatNotInteger) {
             Status::JwtPayloadParseErrorIatNotInteger);
 }
 
+TEST(JwtParseTest, TestParsePayloadIatNotPositive) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "iat":
+   * "-12345" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjotMTIzNDV9."
+      "J0q58VUq4Vx71aVlH0gRCtNfmQrQ1Cw2dFVZ6WqDbBw";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text),
+            Status::JwtPayloadParseErrorIatOutOfRange);
+}
+
+TEST(JwtParseTest, TestParsePayloadIatTooBig) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "iat":
+   * "2.001e+206" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoyLjAwMWUrMjA2"
+      "fQ.Sdnjb4zh6VnxtTJGlBRTBIQsQYDDxdd8qDI7B5FNdEQ";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text),
+            Status::JwtPayloadParseErrorIatOutOfRange);
+}
+
+TEST(JwtParseTest, TestParsePayloadIatDecimalsDrop) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "iat":
+   * "1234.5678" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxMjM0LjU2Nzh9"
+      ".tpmF_m236jEAYN1-Bk4T1ooSUTfiZ-RigFhEdi9Nwz4";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text), Status::Ok);
+
+  // "iat" at payload is 1234.5678, decimals are dropped.
+  EXPECT_EQ(jwt.iat_, 1234);
+}
+
 TEST(JwtParseTest, TestParsePayloadNbfNotInteger) {
   /*
    * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "nbf":
@@ -320,6 +367,36 @@ TEST(JwtParseTest, TestParsePayloadNbfNotInteger) {
             Status::JwtPayloadParseErrorNbfNotInteger);
 }
 
+TEST(JwtParseTest, TestParsePayloadNbfNotPositive) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "nbf":
+   * "-12345" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwibmJmIjotMTIzNDV9."
+      "rlnrK7unNEaaghPFhNQnDp1GRbCU0rGORO2yDf5YIZk";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text),
+            Status::JwtPayloadParseErrorNbfOutOfRange);
+}
+
+TEST(JwtParseTest, TestParsePayloadNbfTooBig) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "nbf":
+   * "2.001e+206" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwibmJmIjoyLjAwMWUrMjA2"
+      "fQ.K9TSv9vMhzE1Je3DPJDcaztYp6kjULZt7RScHDMxTZw";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text),
+            Status::JwtPayloadParseErrorNbfOutOfRange);
+}
+
 TEST(JwtParseTest, TestParsePayloadExpNotInteger) {
   /*
    * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "exp":
@@ -334,6 +411,36 @@ TEST(JwtParseTest, TestParsePayloadExpNotInteger) {
   Jwt jwt;
   ASSERT_EQ(jwt.parseFromString(jwt_text),
             Status::JwtPayloadParseErrorExpNotInteger);
+}
+
+TEST(JwtParseTest, TestParsePayloadExpNotPositive) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "exp":
+   * "-12345" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiZXhwIjotMTIzNDV9."
+      "BCgzT_CEurIxa0MxbS9seJ62lgfJT54P7AQpUkp65GE";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text),
+            Status::JwtPayloadParseErrorExpOutOfRange);
+}
+
+TEST(JwtParseTest, TestParsePayloadExpTooBig) {
+  /*
+   * jwt with payload { "iss":"test_issuer", "sub": "test_subject", "exp":
+   * "2.001e+206" }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiZXhwIjoyLjAwMWUrMjA2"
+      "fQ._mvA4ErN4W07mRzop3jBlZmmrywafvZpbfHZ1QKoplU";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text),
+            Status::JwtPayloadParseErrorExpOutOfRange);
 }
 
 TEST(JwtParseTest, TestParsePayloadJtiNotString) {
@@ -397,6 +504,71 @@ TEST(JwtParseTest, InvalidSignature) {
   Jwt jwt;
   ASSERT_EQ(jwt.parseFromString(jwt_text),
             Status::JwtSignatureParseErrorBadBase64);
+}
+
+TEST(JwtParseTest, GoodNestedJwt) {
+  /*
+   * jwt with payload
+   * {
+   *  "sub": "test@example.com",
+   *  "aud": "example_service",
+   *  "exp": 2001001001,
+   *  "nested": {
+   *    "key-1": "value1",
+   *    "nested-2": {
+   *      "key-2": "value2",
+   *      "key-3": true,
+   *      "key-4": 9999
+   *    }
+   *  }
+   * }
+   */
+  const std::string jwt_text =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
+      "ImF1ZCI6ImV4YW1wbGVfc2"
+      "V"
+      "ydmljZSIsImV4cCI6MjAwMTAwMTAwMSwibmVzdGVkIjp7ImtleS0xIjoidmFsdWUxIiwibmV"
+      "zdGVkLTIiOnsia2V5LTIiO"
+      "iJ"
+      "2YWx1ZTIiLCJrZXktMyI6dHJ1ZSwia2V5LTQiOjk5OTl9fX0."
+      "IWZiZ0dCqFG13fGKSu8t7nBHTFTXvtBXOp68gIcO-"
+      "1K3k0dhuWwX6umIDm_1W9Y8NdztS-"
+      "4jH4ULqRdR9QQFkxE7727USTHexN2sAqqxmAa1zdu2F-v3__VD8yONngWEWmw_"
+      "n-RbP0H1NEBcQf4uYuLIXWi-buGBzcyxwpEPLFnCRarunCEMSp3loPCm-SOBNf2ISeQ0h_"
+      "dpQ9dnWWxVvVA8T_AxROSto_"
+      "8eF_"
+      "o1zEnAbr8emLHDeeSFJNqhktT0ZTvv0__"
+      "stILRAobYRO5ztRBUs4WJ6cgX7rGSMFo5cgP1RMrQKpfHKP9WFHpHhogQ4UXi7ndCxTM6r0G"
+      "BinZRiA";
+
+  Jwt jwt;
+  ASSERT_EQ(jwt.parseFromString(jwt_text), Status::Ok);
+
+  StructUtils payload_getter(jwt.payload_pb_);
+
+  // fetching: nested.key-1 = value1
+  std::string string_value;
+  EXPECT_EQ(payload_getter.GetString("nested.key-1", &string_value),
+            StructUtils::OK);
+  EXPECT_EQ(string_value, "value1");
+
+  // fetching: nested.nested-2.key-2 = value2
+  EXPECT_EQ(payload_getter.GetString("nested.nested-2.key-2", &string_value),
+            StructUtils::OK);
+  EXPECT_EQ(string_value, "value2");
+
+  // fetching: nested.nested-2.key-3 = true
+  bool bool_value;
+  EXPECT_EQ(payload_getter.GetBoolean("nested.nested-2.key-3", &bool_value),
+            StructUtils::OK);
+  EXPECT_EQ(bool_value, true);
+
+  // fetching: nested.nested-2.key-4 = 9999
+  uint64_t int_value;
+  EXPECT_EQ(payload_getter.GetUInt64("nested.nested-2.key-4", &int_value),
+            StructUtils::OK);
+  EXPECT_EQ(int_value, 9999);
 }
 
 }  // namespace

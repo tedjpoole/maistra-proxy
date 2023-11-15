@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "quiche/quic/core/quic_unacked_packet_map.h"
+
 #include <cstddef>
 #include <limits>
 
@@ -47,8 +48,7 @@ class QuicUnackedPacketMapTest : public QuicTestWithParam<Perspective> {
   }
 
   SerializedPacket CreateRetransmittablePacketForStream(
-      uint64_t packet_number,
-      QuicStreamId stream_id) {
+      uint64_t packet_number, QuicStreamId stream_id) {
     SerializedPacket packet(QuicPacketNumber(packet_number),
                             PACKET_1BYTE_PACKET_NUMBER, nullptr, kDefaultLength,
                             false, false);
@@ -155,16 +155,15 @@ class QuicUnackedPacketMapTest : public QuicTestWithParam<Perspective> {
     info->first_sent_after_loss = QuicPacketNumber(new_packet_number);
     SerializedPacket packet(
         CreateRetransmittablePacketForStream(new_packet_number, stream_id));
-    unacked_packets_.AddSentPacket(&packet, transmission_type, now_, true,
-                                   true);
+    unacked_packets_.AddSentPacket(&packet, transmission_type, now_, true, true,
+                                   ECN_NOT_ECT);
   }
   QuicUnackedPacketMap unacked_packets_;
   QuicTime now_;
   StrictMock<MockSessionNotifier> notifier_;
 };
 
-INSTANTIATE_TEST_SUITE_P(Tests,
-                         QuicUnackedPacketMapTest,
+INSTANTIATE_TEST_SUITE_P(Tests, QuicUnackedPacketMapTest,
                          ::testing::ValuesIn({Perspective::IS_CLIENT,
                                               Perspective::IS_SERVER}),
                          ::testing::PrintToStringParamName());
@@ -172,8 +171,8 @@ INSTANTIATE_TEST_SUITE_P(Tests,
 TEST_P(QuicUnackedPacketMapTest, RttOnly) {
   // Acks are only tracked for RTT measurement purposes.
   SerializedPacket packet(CreateNonRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, false,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, false, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked[] = {1};
   VerifyUnackedPackets(unacked, ABSL_ARRAYSIZE(unacked));
@@ -189,7 +188,8 @@ TEST_P(QuicUnackedPacketMapTest, RttOnly) {
 TEST_P(QuicUnackedPacketMapTest, RetransmittableInflightAndRtt) {
   // Simulate a retransmittable packet being sent and acked.
   SerializedPacket packet(CreateRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, true, true);
+  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked[] = {1};
   VerifyUnackedPackets(unacked, ABSL_ARRAYSIZE(unacked));
@@ -215,7 +215,8 @@ TEST_P(QuicUnackedPacketMapTest, RetransmittableInflightAndRtt) {
 TEST_P(QuicUnackedPacketMapTest, StopRetransmission) {
   const QuicStreamId stream_id = 2;
   SerializedPacket packet(CreateRetransmittablePacketForStream(1, stream_id));
-  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, true, true);
+  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked[] = {1};
   VerifyUnackedPackets(unacked, ABSL_ARRAYSIZE(unacked));
@@ -233,7 +234,8 @@ TEST_P(QuicUnackedPacketMapTest, StopRetransmission) {
 TEST_P(QuicUnackedPacketMapTest, StopRetransmissionOnOtherStream) {
   const QuicStreamId stream_id = 2;
   SerializedPacket packet(CreateRetransmittablePacketForStream(1, stream_id));
-  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, true, true);
+  unacked_packets_.AddSentPacket(&packet, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked[] = {1};
   VerifyUnackedPackets(unacked, ABSL_ARRAYSIZE(unacked));
@@ -251,8 +253,8 @@ TEST_P(QuicUnackedPacketMapTest, StopRetransmissionOnOtherStream) {
 TEST_P(QuicUnackedPacketMapTest, StopRetransmissionAfterRetransmission) {
   const QuicStreamId stream_id = 2;
   SerializedPacket packet1(CreateRetransmittablePacketForStream(1, stream_id));
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   RetransmitAndSendPacket(1, 2, LOSS_RETRANSMISSION);
 
   uint64_t unacked[] = {1, 2};
@@ -271,8 +273,8 @@ TEST_P(QuicUnackedPacketMapTest, RetransmittedPacket) {
   // Simulate a retransmittable packet being sent, retransmitted, and the first
   // transmission being acked.
   SerializedPacket packet1(CreateRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   RetransmitAndSendPacket(1, 2, LOSS_RETRANSMISSION);
 
   uint64_t unacked[] = {1, 2};
@@ -307,11 +309,11 @@ TEST_P(QuicUnackedPacketMapTest, RetransmittedPacket) {
 TEST_P(QuicUnackedPacketMapTest, RetransmitThreeTimes) {
   // Simulate a retransmittable packet being sent and retransmitted twice.
   SerializedPacket packet1(CreateRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   SerializedPacket packet2(CreateRetransmittablePacket(2));
-  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked[] = {1, 2};
   VerifyUnackedPackets(unacked, ABSL_ARRAYSIZE(unacked));
@@ -327,8 +329,8 @@ TEST_P(QuicUnackedPacketMapTest, RetransmitThreeTimes) {
   unacked_packets_.RemoveFromInFlight(QuicPacketNumber(1));
   RetransmitAndSendPacket(1, 3, LOSS_RETRANSMISSION);
   SerializedPacket packet4(CreateRetransmittablePacket(4));
-  unacked_packets_.AddSentPacket(&packet4, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet4, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked2[] = {1, 3, 4};
   VerifyUnackedPackets(unacked2, ABSL_ARRAYSIZE(unacked2));
@@ -343,8 +345,8 @@ TEST_P(QuicUnackedPacketMapTest, RetransmitThreeTimes) {
   unacked_packets_.RemoveRetransmittability(QuicPacketNumber(4));
   RetransmitAndSendPacket(3, 5, LOSS_RETRANSMISSION);
   SerializedPacket packet6(CreateRetransmittablePacket(6));
-  unacked_packets_.AddSentPacket(&packet6, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet6, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   std::vector<uint64_t> unacked3 = {3, 5, 6};
   std::vector<uint64_t> retransmittable3 = {3, 5, 6};
@@ -376,11 +378,11 @@ TEST_P(QuicUnackedPacketMapTest, RetransmitThreeTimes) {
 TEST_P(QuicUnackedPacketMapTest, RetransmitFourTimes) {
   // Simulate a retransmittable packet being sent and retransmitted twice.
   SerializedPacket packet1(CreateRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   SerializedPacket packet2(CreateRetransmittablePacket(2));
-  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked[] = {1, 2};
   VerifyUnackedPackets(unacked, ABSL_ARRAYSIZE(unacked));
@@ -403,11 +405,11 @@ TEST_P(QuicUnackedPacketMapTest, RetransmitFourTimes) {
   std::vector<uint64_t> retransmittable2 = {1, 3};
   VerifyRetransmittablePackets(&retransmittable2[0], retransmittable2.size());
 
-  // TLP 3 (formerly 1) as 4, and don't remove 1 from unacked.
-  RetransmitAndSendPacket(3, 4, TLP_RETRANSMISSION);
+  // PTO 3 (formerly 1) as 4, and don't remove 1 from unacked.
+  RetransmitAndSendPacket(3, 4, PTO_RETRANSMISSION);
   SerializedPacket packet5(CreateRetransmittablePacket(5));
-  unacked_packets_.AddSentPacket(&packet5, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet5, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
 
   uint64_t unacked3[] = {1, 3, 4, 5};
   VerifyUnackedPackets(unacked3, ABSL_ARRAYSIZE(unacked3));
@@ -436,11 +438,11 @@ TEST_P(QuicUnackedPacketMapTest, SendWithGap) {
   // Simulate a retransmittable packet being sent, retransmitted, and the first
   // transmission being acked.
   SerializedPacket packet1(CreateRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   SerializedPacket packet3(CreateRetransmittablePacket(3));
-  unacked_packets_.AddSentPacket(&packet3, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet3, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   RetransmitAndSendPacket(3, 5, LOSS_RETRANSMISSION);
 
   EXPECT_EQ(QuicPacketNumber(1u), unacked_packets_.GetLeastUnacked());
@@ -552,7 +554,7 @@ TEST_P(QuicUnackedPacketMapTest, CannotAggregateAckedControlFrames) {
   QuicWindowUpdateFrame window_update(1, 5, 100);
   QuicStreamFrame stream_frame1(3, false, 0, 100);
   QuicStreamFrame stream_frame2(3, false, 100, 100);
-  QuicBlockedFrame blocked(2, 5);
+  QuicBlockedFrame blocked(2, 5, 0);
   QuicGoAwayFrame go_away(3, QUIC_PEER_GOING_AWAY, 5, "Going away.");
 
   QuicTransmissionInfo info1;
@@ -586,8 +588,8 @@ TEST_P(QuicUnackedPacketMapTest, LargestSentPacketMultiplePacketNumberSpaces) {
   // Send packet 1.
   SerializedPacket packet1(CreateRetransmittablePacket(1));
   packet1.encryption_level = ENCRYPTION_INITIAL;
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   EXPECT_EQ(QuicPacketNumber(1u), unacked_packets_.largest_sent_packet());
   EXPECT_EQ(QuicPacketNumber(1),
             unacked_packets_.GetLargestSentRetransmittableOfPacketNumberSpace(
@@ -599,8 +601,8 @@ TEST_P(QuicUnackedPacketMapTest, LargestSentPacketMultiplePacketNumberSpaces) {
   // Send packet 2.
   SerializedPacket packet2(CreateRetransmittablePacket(2));
   packet2.encryption_level = ENCRYPTION_HANDSHAKE;
-  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   EXPECT_EQ(QuicPacketNumber(2u), unacked_packets_.largest_sent_packet());
   EXPECT_EQ(QuicPacketNumber(1),
             unacked_packets_.GetLargestSentRetransmittableOfPacketNumberSpace(
@@ -615,8 +617,8 @@ TEST_P(QuicUnackedPacketMapTest, LargestSentPacketMultiplePacketNumberSpaces) {
   // Send packet 3.
   SerializedPacket packet3(CreateRetransmittablePacket(3));
   packet3.encryption_level = ENCRYPTION_ZERO_RTT;
-  unacked_packets_.AddSentPacket(&packet3, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet3, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   EXPECT_EQ(QuicPacketNumber(3u), unacked_packets_.largest_sent_packet());
   EXPECT_EQ(QuicPacketNumber(1),
             unacked_packets_.GetLargestSentRetransmittableOfPacketNumberSpace(
@@ -636,8 +638,8 @@ TEST_P(QuicUnackedPacketMapTest, LargestSentPacketMultiplePacketNumberSpaces) {
   // Send packet 4.
   SerializedPacket packet4(CreateRetransmittablePacket(4));
   packet4.encryption_level = ENCRYPTION_FORWARD_SECURE;
-  unacked_packets_.AddSentPacket(&packet4, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet4, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   EXPECT_EQ(QuicPacketNumber(4u), unacked_packets_.largest_sent_packet());
   EXPECT_EQ(QuicPacketNumber(1),
             unacked_packets_.GetLargestSentRetransmittableOfPacketNumberSpace(
@@ -664,7 +666,7 @@ TEST_P(QuicUnackedPacketMapTest, ReserveInitialCapacityTest) {
   QuicStreamId stream_id(1);
   SerializedPacket packet(CreateRetransmittablePacketForStream(1, stream_id));
   unacked_packets.AddSentPacket(&packet, TransmissionType::NOT_RETRANSMISSION,
-                                now_, true, true);
+                                now_, true, true, ECN_NOT_ECT);
   ASSERT_EQ(QuicUnackedPacketMapPeer::GetCapacity(unacked_packets), 16u);
 }
 
@@ -675,16 +677,16 @@ TEST_P(QuicUnackedPacketMapTest, DebugString) {
             "packets_in_flight: 0}");
 
   SerializedPacket packet1(CreateRetransmittablePacket(1));
-  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   EXPECT_EQ(
       unacked_packets_.DebugString(),
       "{size: 1, least_unacked: 1, largest_sent_packet: 1, largest_acked: "
       "uninitialized, bytes_in_flight: 1000, packets_in_flight: 1}");
 
   SerializedPacket packet2(CreateRetransmittablePacket(2));
-  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true,
-                                 true);
+  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
   unacked_packets_.RemoveFromInFlight(QuicPacketNumber(1));
   unacked_packets_.IncreaseLargestAcked(QuicPacketNumber(1));
   unacked_packets_.RemoveObsoletePackets();
@@ -692,6 +694,27 @@ TEST_P(QuicUnackedPacketMapTest, DebugString) {
       unacked_packets_.DebugString(),
       "{size: 1, least_unacked: 2, largest_sent_packet: 2, largest_acked: 1, "
       "bytes_in_flight: 1000, packets_in_flight: 1}");
+}
+
+TEST_P(QuicUnackedPacketMapTest, EcnInfoStored) {
+  SerializedPacket packet1(CreateRetransmittablePacket(1));
+  unacked_packets_.AddSentPacket(&packet1, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_NOT_ECT);
+  SerializedPacket packet2(CreateRetransmittablePacket(2));
+  unacked_packets_.AddSentPacket(&packet2, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_ECT0);
+  SerializedPacket packet3(CreateRetransmittablePacket(3));
+  unacked_packets_.AddSentPacket(&packet3, NOT_RETRANSMISSION, now_, true, true,
+                                 ECN_ECT1);
+  EXPECT_EQ(
+      unacked_packets_.GetTransmissionInfo(QuicPacketNumber(1)).ecn_codepoint,
+      ECN_NOT_ECT);
+  EXPECT_EQ(
+      unacked_packets_.GetTransmissionInfo(QuicPacketNumber(2)).ecn_codepoint,
+      ECN_ECT0);
+  EXPECT_EQ(
+      unacked_packets_.GetTransmissionInfo(QuicPacketNumber(3)).ecn_codepoint,
+      ECN_ECT1);
 }
 
 }  // namespace

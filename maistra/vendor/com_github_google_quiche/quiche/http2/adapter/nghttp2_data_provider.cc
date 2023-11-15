@@ -1,5 +1,7 @@
 #include "quiche/http2/adapter/nghttp2_data_provider.h"
 
+#include <memory>
+
 #include "quiche/http2/adapter/http2_visitor_interface.h"
 #include "quiche/http2/adapter/nghttp2_util.h"
 
@@ -12,10 +14,8 @@ const size_t kFrameHeaderSize = 9;
 }
 
 ssize_t DataFrameSourceReadCallback(nghttp2_session* /* session */,
-                                    int32_t /* stream_id */,
-                                    uint8_t* /* buf */,
-                                    size_t length,
-                                    uint32_t* data_flags,
+                                    int32_t /* stream_id */, uint8_t* /* buf */,
+                                    size_t length, uint32_t* data_flags,
                                     nghttp2_data_source* source,
                                     void* /* user_data */) {
   *data_flags |= NGHTTP2_DATA_FLAG_NO_COPY;
@@ -37,8 +37,7 @@ ssize_t DataFrameSourceReadCallback(nghttp2_session* /* session */,
 
 int DataFrameSourceSendCallback(nghttp2_session* /* session */,
                                 nghttp2_frame* /* frame */,
-                                const uint8_t* framehd,
-                                size_t length,
+                                const uint8_t* framehd, size_t length,
                                 nghttp2_data_source* source,
                                 void* /* user_data */) {
   auto* frame_source = static_cast<DataFrameSource*>(source->ptr);
@@ -53,7 +52,7 @@ std::unique_ptr<nghttp2_data_provider> MakeDataProvider(
   if (source == nullptr) {
     return nullptr;
   }
-  auto provider = absl::make_unique<nghttp2_data_provider>();
+  auto provider = std::make_unique<nghttp2_data_provider>();
   provider->source.ptr = source;
   provider->read_callback = &callbacks::DataFrameSourceReadCallback;
   return provider;

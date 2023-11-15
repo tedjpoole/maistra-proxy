@@ -17,6 +17,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <ostream>
 #include <string>
 
 #include "absl/base/attributes.h"
@@ -33,7 +34,9 @@ namespace absl {
 ABSL_NAMESPACE_BEGIN
 namespace cord_internal {
 
-constexpr size_t CordRepBtree::kMaxCapacity;  // NOLINT: needed for c++ < c++17
+#ifdef ABSL_INTERNAL_NEED_REDUNDANT_CONSTEXPR_DECL
+constexpr size_t CordRepBtree::kMaxCapacity;
+#endif
 
 namespace {
 
@@ -53,8 +56,10 @@ inline bool exhaustive_validation() {
 // Prints the entire tree structure or 'rep'. External callers should
 // not specify 'depth' and leave it to its default (0) value.
 // Rep may be a CordRepBtree tree, or a SUBSTRING / EXTERNAL / FLAT node.
-void DumpAll(const CordRep* rep, bool include_contents, std::ostream& stream,
-             int depth = 0) {
+void DumpAll(const CordRep* rep,
+             bool include_contents,
+             std::ostream& stream,
+             size_t depth = 0) {
   // Allow for full height trees + substring -> flat / external nodes.
   assert(depth <= CordRepBtree::kMaxDepth + 2);
   std::string sharing = const_cast<CordRep*>(rep)->refcount.IsOne()
@@ -497,7 +502,7 @@ OpResult CordRepBtree::SetEdge(bool owned, CordRep* edge, size_t delta) {
     // open interval [begin, back) or [begin + 1, end) depending on `edge_type`.
     // We conveniently cover both case using a constexpr `shift` being 0 or 1
     // as `end :== back + 1`.
-    result = {CopyRaw(), kCopied};
+    result = {CopyRaw(length), kCopied};
     constexpr int shift = edge_type == kFront ? 1 : 0;
     for (CordRep* r : Edges(begin() + shift, back() + shift)) {
       CordRep::Ref(r);

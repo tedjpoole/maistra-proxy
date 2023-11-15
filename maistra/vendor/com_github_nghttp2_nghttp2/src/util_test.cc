@@ -207,7 +207,7 @@ void test_util_http_date(void) {
 }
 
 void test_util_select_h2(void) {
-  const unsigned char *out = NULL;
+  const unsigned char *out = nullptr;
   unsigned char outlen = 0;
 
   // Check single entry and select it.
@@ -217,7 +217,7 @@ void test_util_select_h2(void) {
       memcmp(NGHTTP2_PROTO_VERSION_ID, out, NGHTTP2_PROTO_VERSION_ID_LEN) == 0);
   CU_ASSERT(NGHTTP2_PROTO_VERSION_ID_LEN == outlen);
 
-  out = NULL;
+  out = nullptr;
   outlen = 0;
 
   // Check the case where id is correct but length is invalid and too
@@ -233,7 +233,7 @@ void test_util_select_h2(void) {
       memcmp(NGHTTP2_PROTO_VERSION_ID, out, NGHTTP2_PROTO_VERSION_ID_LEN) == 0);
   CU_ASSERT(NGHTTP2_PROTO_VERSION_ID_LEN == outlen);
 
-  out = NULL;
+  out = nullptr;
   outlen = 0;
 
   // Check the case that last entry's length is invalid and too long.
@@ -448,7 +448,11 @@ void test_util_localtime_date(void) {
   if (tz) {
     tz = strdup(tz);
   }
+#ifdef __linux__
+  setenv("TZ", "NZST-12:00:00:00", 1);
+#else  // !__linux__
   setenv("TZ", ":Pacific/Auckland", 1);
+#endif // !__linux__
   tzset();
 
   CU_ASSERT_STRING_EQUAL("02/Oct/2001:00:34:56 +1200",
@@ -693,6 +697,16 @@ void test_util_split_str(void) {
   CU_ASSERT(
       std::vector<StringRef>{StringRef::from_lit("alpha,bravo,charlie")} ==
       util::split_str(StringRef::from_lit("alpha,bravo,charlie"), ',', 1));
+}
+
+void test_util_rstrip(void) {
+  BlockAllocator balloc(4096, 4096);
+
+  CU_ASSERT("alpha" == util::rstrip(balloc, StringRef::from_lit("alpha")));
+  CU_ASSERT("alpha" == util::rstrip(balloc, StringRef::from_lit("alpha ")));
+  CU_ASSERT("alpha" == util::rstrip(balloc, StringRef::from_lit("alpha \t")));
+  CU_ASSERT("" == util::rstrip(balloc, StringRef::from_lit("")));
+  CU_ASSERT("" == util::rstrip(balloc, StringRef::from_lit("\t\t\t   ")));
 }
 
 } // namespace shrpx

@@ -17,7 +17,7 @@
 
 namespace quiche {
 
-struct QUICHE_EXPORT_PRIVATE StringPieceCaseHash {
+struct QUICHE_EXPORT StringPieceCaseHash {
   size_t operator()(absl::string_view data) const {
     std::string lower = absl::AsciiStrToLower(data);
     absl::Hash<absl::string_view> hasher;
@@ -25,14 +25,14 @@ struct QUICHE_EXPORT_PRIVATE StringPieceCaseHash {
   }
 };
 
-struct QUICHE_EXPORT_PRIVATE StringPieceCaseEqual {
+struct QUICHE_EXPORT StringPieceCaseEqual {
   bool operator()(absl::string_view piece1, absl::string_view piece2) const {
     return absl::EqualsIgnoreCase(piece1, piece2);
   }
 };
 
 // Various utilities for manipulating text.
-class QUICHE_EXPORT_PRIVATE QuicheTextUtils {
+class QUICHE_EXPORT QuicheTextUtils {
  public:
   // Returns a new string in which |data| has been converted to lower case.
   static std::string ToLower(absl::string_view data) {
@@ -45,8 +45,7 @@ class QUICHE_EXPORT_PRIVATE QuicheTextUtils {
   }
 
   // Base64 encodes with no padding |data_len| bytes of |data| into |output|.
-  static void Base64Encode(const uint8_t* data,
-                           size_t data_len,
+  static void Base64Encode(const uint8_t* data, size_t data_len,
                            std::string* output);
 
   // Decodes a base64-encoded |input|.  Returns nullopt when the input is

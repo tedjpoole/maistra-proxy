@@ -17,6 +17,10 @@ load(
     "go_context",
 )
 load(
+    "//go/private:go_toolchain.bzl",
+    "GO_TOOLCHAIN",
+)
+load(
     "//go/private:providers.bzl",
     "EXPORT_PATH",
     "GoArchive",
@@ -25,7 +29,7 @@ load(
 )
 load(
     "//go/private/rules:transition.bzl",
-    "go_reset_transition",
+    "go_tool_transition",
 )
 
 def _nogo_impl(ctx):
@@ -72,14 +76,14 @@ def _nogo_impl(ctx):
         embed = [ctx.attr._nogo_srcs],
         deps = analyzer_archives,
     ), nogo_library, False)
-    nogo_archive, executable, runfiles = go.binary(
+    _, executable, runfiles = go.binary(
         go,
         name = ctx.label.name,
         source = nogo_source,
     )
     return [DefaultInfo(
         files = depset([executable]),
-        runfiles = nogo_archive.runfiles,
+        runfiles = runfiles,
         executable = executable,
     )]
 
@@ -102,8 +106,8 @@ _nogo = rule(
             default = "@bazel_tools//tools/whitelists/function_transition_whitelist",
         ),
     },
-    toolchains = ["@io_bazel_rules_go//go:toolchain"],
-    cfg = go_reset_transition,
+    toolchains = [GO_TOOLCHAIN],
+    cfg = go_tool_transition,
 )
 
 def nogo(name, visibility = None, **kwargs):
@@ -116,6 +120,16 @@ def nogo(name, visibility = None, **kwargs):
         }),
         visibility = visibility,
     )
+
+    # With --use_top_level_targets_for_symlinks, which is enabled by default in
+    # Bazel 6.0.0, self-transitioning top-level targets prevent the bazel-bin
+    # convenience symlink from being created. Since nogo targets are of this
+    # type, their presence would trigger this behavior. Work around this by
+    # excluding them from wildcards - they are still transitively built as a
+    # tool dependency of every Go target.
+    kwargs.setdefault("tags", [])
+    if "manual" not in kwargs["tags"]:
+        kwargs["tags"].append("manual")
 
     _nogo(
         name = actual_name,

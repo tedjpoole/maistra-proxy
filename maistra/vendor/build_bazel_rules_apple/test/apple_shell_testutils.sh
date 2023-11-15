@@ -17,6 +17,20 @@
 # Common utilities that are useful across a variety of Apple shell integration
 # tests.
 
+# The arm64e architecture was introduced for iOS and tvOS in version 12.
+ARM64E_MIN_OS_IOS="12.0"
+ARM64E_MIN_OS_TVOS="12.0"
+
+export MIN_OS_IOS="$ARM64E_MIN_OS_IOS"
+export MIN_OS_IOS_NPLUS1="13.0"
+
+export MIN_OS_TVOS="$ARM64E_MIN_OS_TVOS"
+export MIN_OS_TVOS_NPLUS1="13.0"
+
+export MIN_OS_MACOS="10.13"
+export MIN_OS_MACOS_NPLUS1="10.14"
+
+export MIN_OS_WATCHOS="4.0"
 
 # Usage: assert_exists <path>
 #
@@ -449,8 +463,8 @@ function do_action() {
       # Explicitly pass these flags to ensure the external testing infrastructure
       # matches the internal one.
       "--incompatible_merge_genfiles_directory"
-      # TODO: Remove this once we can use the late bound coverage attribute
-      "--test_env=LCOV_MERGER=/usr/bin/true"
+      # TODO: Fix the tests that fail with this flag and remove this.
+      "--incompatible_unambiguous_label_stringification=false"
   )
 
   local bazel_version="$(bazel --version)"
@@ -536,7 +550,7 @@ function print_debug_entitlements() {
   # look like hex), then runs it through `xxd` to turn the hex into ASCII.
   # The results should be the entitlements plist text, which we can compare
   # against.
-  xcrun llvm-objdump -macho -section=__TEXT,__entitlements "$binary" | \
+  xcrun llvm-objdump --macho --section=__TEXT,__entitlements "$binary" | \
       sed -e 's/^[0-9a-f][0-9a-f]*[[:space:]][[:space:]]*//' \
           -e 'tx' -e 'd' -e ':x' | xxd -r -p
 }
@@ -608,7 +622,7 @@ function assert_objdump_contains() {
   local symbol_regexp="$3"
 
   [[ -f "$path" ]] || fail "$path does not exist"
-  local contents=$(objdump -t -macho -arch="$arch" "$path" | grep -v "*UND*")
+  local contents=$(objdump --syms --macho --arch="$arch" "$path" | grep -v "*UND*")
   echo "$contents" | grep -e "$symbol_regexp" >& /dev/null && return 0
   fail "Expected binary '$path' to contain '$symbol_regexp' but it did not." \
       "contents were: $contents"
@@ -624,7 +638,7 @@ function assert_objdump_not_contains() {
   local symbol_regexp="$3"
 
   [[ -f "$path" ]] || fail "$path does not exist"
-  local contents=$(objdump -t -macho -arch="$arch" "$path" | grep -v "*UND*")
+  local contents=$(objdump --syms --macho --arch="$arch" "$path" | grep -v "*UND*")
   echo "$contents" | grep -e "$symbol_regexp" >& /dev/null || return 0
   fail "Expected binary '$path' to not contain '$symbol_regexp' but it did."  \
       "contents were: $contents"

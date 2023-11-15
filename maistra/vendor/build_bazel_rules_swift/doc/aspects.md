@@ -9,7 +9,7 @@ On this page:
 
   * [swift_usage_aspect](#swift_usage_aspect)
 
-<a id="#swift_usage_aspect"></a>
+<a id="swift_usage_aspect"></a>
 
 ## swift_usage_aspect
 
@@ -24,14 +24,6 @@ provider for any target found in that attribute that uses Swift, either directly
 or deeper in its dependency tree. Conversely, if neither a target nor its
 transitive dependencies use Swift, the `SwiftUsageInfo` provider will not be
 propagated.
-
-Specifically, the aspect propagates which toolchain was used to build those
-dependencies. This information is typically always the same for any Swift
-targets built in the same configuration, but this allows upstream targets that
-may not be *strictly* Swift-related and thus don't want to depend directly on
-the Swift toolchain (such as Apple universal binary linking rules) to avoid
-doing so but still get access to information derived from the toolchain (like
-which linker flags to pass to link to the runtime).
 
 We use an aspect (as opposed to propagating this information through normal
 providers returned by `swift_library`) because the information is needed if
@@ -52,6 +44,6 @@ language rules that wouldn't know how to propagate the Swift-specific providers.
 
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="swift_usage_aspect-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |   |
+| <a id="swift_usage_aspect-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |   |
 
 

@@ -21,6 +21,7 @@ load(
 load(
     "//rust/private:clippy.bzl",
     _capture_clippy_output = "capture_clippy_output",
+    _clippy_flags = "clippy_flags",
     _rust_clippy = "rust_clippy",
     _rust_clippy_aspect = "rust_clippy_aspect",
 )
@@ -29,6 +30,7 @@ load(
     "//rust/private:rust.bzl",
     _rust_binary = "rust_binary",
     _rust_library = "rust_library",
+    _rust_library_group = "rust_library_group",
     _rust_proc_macro = "rust_proc_macro",
     _rust_shared_library = "rust_shared_library",
     _rust_static_library = "rust_static_library",
@@ -37,14 +39,19 @@ load(
 )
 load(
     "//rust/private:rust_analyzer.bzl",
-    _rust_analyzer = "rust_analyzer",
     _rust_analyzer_aspect = "rust_analyzer_aspect",
 )
 load(
     "//rust/private:rustc.bzl",
     _error_format = "error_format",
+    _extra_exec_rustc_flag = "extra_exec_rustc_flag",
     _extra_exec_rustc_flags = "extra_exec_rustc_flags",
+    _extra_rustc_flag = "extra_rustc_flag",
     _extra_rustc_flags = "extra_rustc_flags",
+    _is_proc_macro_dep = "is_proc_macro_dep",
+    _is_proc_macro_dep_enabled = "is_proc_macro_dep_enabled",
+    _no_std = "no_std",
+    _per_crate_rustc_flag = "per_crate_rustc_flag",
 )
 load(
     "//rust/private:rustdoc.bzl",
@@ -75,6 +82,9 @@ rust_proc_macro = _rust_proc_macro
 rust_binary = _rust_binary
 # See @rules_rust//rust/private:rust.bzl for a complete description.
 
+rust_library_group = _rust_library_group
+# See @rules_rust//rust/private:rust.bzl for a complete description.
+
 rust_test = _rust_test
 # See @rules_rust//rust/private:rust.bzl for a complete description.
 
@@ -86,6 +96,9 @@ rust_doc = _rust_doc
 
 rust_doc_test = _rust_doc_test
 # See @rules_rust//rust/private:rustdoc_test.bzl for a complete description.
+
+clippy_flags = _clippy_flags
+# See @rules_rust//rust/private:clippy.bzl for a complete description.
 
 rust_clippy_aspect = _rust_clippy_aspect
 # See @rules_rust//rust/private:clippy.bzl for a complete description.
@@ -99,19 +112,31 @@ capture_clippy_output = _capture_clippy_output
 error_format = _error_format
 # See @rules_rust//rust/private:rustc.bzl for a complete description.
 
+extra_rustc_flag = _extra_rustc_flag
+# See @rules_rust//rust/private:rustc.bzl for a complete description.
+
 extra_rustc_flags = _extra_rustc_flags
 # See @rules_rust//rust/private:rustc.bzl for a complete description.
 
+extra_exec_rustc_flag = _extra_exec_rustc_flag
+# See @rules_rust//rust/private:rustc.bzl for a complete description.
+
 extra_exec_rustc_flags = _extra_exec_rustc_flags
+# See @rules_rust//rust/private:rustc.bzl for a complete description.
+
+is_proc_macro_dep = _is_proc_macro_dep
+# See @rules_rust//rust/private:rustc.bzl for a complete description.
+
+is_proc_macro_dep_enabled = _is_proc_macro_dep_enabled
+# See @rules_rust//rust/private:rustc.bzl for a complete description.
+
+per_crate_rustc_flag = _per_crate_rustc_flag
 # See @rules_rust//rust/private:rustc.bzl for a complete description.
 
 rust_common = _rust_common
 # See @rules_rust//rust/private:common.bzl for a complete description.
 
 rust_analyzer_aspect = _rust_analyzer_aspect
-# See @rules_rust//rust/private:rust_analyzer.bzl for a complete description.
-
-rust_analyzer = _rust_analyzer
 # See @rules_rust//rust/private:rust_analyzer.bzl for a complete description.
 
 rustfmt_aspect = _rustfmt_aspect
@@ -122,3 +147,5 @@ rustfmt_test = _rustfmt_test
 
 rust_stdlib_filegroup = _rust_stdlib_filegroup
 # See @rules_rust//rust:toolchain.bzl for a complete description.
+
+no_std = _no_std

@@ -14,19 +14,12 @@
 #include "quiche/quic/qbone/qbone_constants.h"
 #include "quiche/common/platform/api/quiche_command_line_flags.h"
 
-DEFINE_QUICHE_COMMAND_LINE_FLAG(
-    bool, qbone_server_defer_control_stream_creation, true,
-    "If true, control stream in QBONE server session is created after "
-    "encryption established.");
-
 namespace quic {
 
 bool QboneCryptoServerStreamHelper::CanAcceptClientHello(
-    const CryptoHandshakeMessage& chlo,
-    const QuicSocketAddress& client_address,
+    const CryptoHandshakeMessage& chlo, const QuicSocketAddress& client_address,
     const QuicSocketAddress& peer_address,
-    const QuicSocketAddress& self_address,
-    std::string* error_details) const {
+    const QuicSocketAddress& self_address, std::string* error_details) const {
   absl::string_view alpn;
   chlo.GetStringPiece(quic::kALPN, &alpn);
   if (alpn != QboneConstants::kQboneAlpn) {
@@ -38,16 +31,11 @@ bool QboneCryptoServerStreamHelper::CanAcceptClientHello(
 
 QboneServerSession::QboneServerSession(
     const quic::ParsedQuicVersionVector& supported_versions,
-    QuicConnection* connection,
-    Visitor* owner,
-    const QuicConfig& config,
+    QuicConnection* connection, Visitor* owner, const QuicConfig& config,
     const QuicCryptoServerConfig* quic_crypto_server_config,
-    QuicCompressedCertsCache* compressed_certs_cache,
-    QbonePacketWriter* writer,
-    QuicIpAddress self_ip,
-    QuicIpAddress client_ip,
-    size_t client_ip_subnet_length,
-    QboneServerControlStream::Handler* handler)
+    QuicCompressedCertsCache* compressed_certs_cache, QbonePacketWriter* writer,
+    QuicIpAddress self_ip, QuicIpAddress client_ip,
+    size_t client_ip_subnet_length, QboneServerControlStream::Handler* handler)
     : QboneSessionBase(connection, owner, config, supported_versions, writer),
       processor_(self_ip, client_ip, client_ip_subnet_length, this, this),
       quic_crypto_server_config_(quic_crypto_server_config),
@@ -84,18 +72,10 @@ QuicStream* QboneServerSession::CreateControlStreamFromPendingStream(
   return control_stream_;
 }
 
-void QboneServerSession::Initialize() {
-  QboneSessionBase::Initialize();
-  if (!GetQuicFlag(FLAGS_qbone_server_defer_control_stream_creation)) {
-    CreateControlStream();
-  }
-}
-
 void QboneServerSession::SetDefaultEncryptionLevel(
     quic::EncryptionLevel level) {
   QboneSessionBase::SetDefaultEncryptionLevel(level);
-  if (GetQuicFlag(FLAGS_qbone_server_defer_control_stream_creation) &&
-      level == quic::ENCRYPTION_FORWARD_SECURE) {
+  if (level == quic::ENCRYPTION_FORWARD_SECURE) {
     CreateControlStream();
   }
 }

@@ -69,11 +69,20 @@ enum class Status {
   // Jwt payload field [iat] must be integer.
   JwtPayloadParseErrorIatNotInteger,
 
+  // Jwt payload field [iat] must be within a 64 bit positive integer range.
+  JwtPayloadParseErrorIatOutOfRange,
+
   // Jwt payload field [nbf] must be integer.
   JwtPayloadParseErrorNbfNotInteger,
 
+  // Jwt payload field [nbf] must be within a 64 bit positive integer range.
+  JwtPayloadParseErrorNbfOutOfRange,
+
   // Jwt payload field [exp] must be integer.
   JwtPayloadParseErrorExpNotInteger,
+
+  // Jwt payload field [exp] must be within a 64 bit positive integer range.
+  JwtPayloadParseErrorExpOutOfRange,
 
   // Jwt payload field [jti] must be string.
   JwtPayloadParseErrorJtiNotString,

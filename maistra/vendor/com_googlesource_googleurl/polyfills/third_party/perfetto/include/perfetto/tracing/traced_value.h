@@ -12,6 +12,15 @@ class TracedValue {
   void WriteString(const std::string&) && {}
 };
 
+template <typename T>
+void WriteIntoTracedValue(TracedValue /*context*/, T&& /*value*/) {}
+
+template <typename T, typename ResultType = void, class = void>
+struct check_traced_value_support {
+  static constexpr bool value = true;
+  using type = ResultType;
+};
+
 }  // namespace perfetto
 
 #endif  // POLYFILLS_THIRD_PARTY_PERFETTO_INCLUDE_PERFETTO_TRACING_TRACED_VALUE_H_

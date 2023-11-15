@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestField_Name(t *testing.T) {
@@ -251,8 +251,7 @@ func dummyOneOfField(synthetic bool) *field {
 	m := dummyMsg()
 	o := dummyOneof()
 	str := descriptor.FieldDescriptorProto_TYPE_STRING
-	var oIndex int32
-	oIndex = 1
+	var oIndex int32 = 1
 	f := &field{desc: &descriptor.FieldDescriptorProto{
 		Name:           proto.String("field"),
 		Type:           &str,

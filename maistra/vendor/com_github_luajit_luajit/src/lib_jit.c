@@ -1,6 +1,6 @@
 /*
 ** JIT library.
-** Copyright (C) 2005-2020 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #define lib_jit_c
@@ -346,11 +346,7 @@ LJLIB_CF(jit_util_tracek)
       ir = &T->ir[ir->op1];
     }
 #if LJ_HASFFI
-    if (ir->o == IR_KINT64 && !ctype_ctsG(G(L))) {
-      ptrdiff_t oldtop = savestack(L, L->top);
-      luaopen_ffi(L);  /* Load FFI library on-demand. */
-      L->top = restorestack(L, oldtop);
-    }
+    if (ir->o == IR_KINT64) ctype_loadffi(L);
 #endif
     lj_ir_kvalue(L, L->top-2, ir);
     setintV(L->top-1, (int32_t)irt_type(ir->t));
@@ -722,10 +718,6 @@ static uint32_t jit_cpudetect(void)
     if (x) flags |= JIT_F_MIPSXXR2;  /* Either 0x80000000 (R2) or 0 (R1). */
   }
 #endif
-
-#elif LJ_TARGET_S390X
-
-  /* No optional CPU features to detect (for now). */
 
 #else
 #error "Missing CPU detection for this architecture"

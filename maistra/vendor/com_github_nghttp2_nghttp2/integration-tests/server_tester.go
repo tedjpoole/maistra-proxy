@@ -7,12 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/tatsuhiro-t/go-nghttp2"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/hpack"
-	"golang.org/x/net/websocket"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +20,12 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/tatsuhiro-t/go-nghttp2"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/hpack"
+	"golang.org/x/net/websocket"
 )
 
 const (
@@ -62,46 +63,48 @@ type serverTester struct {
 	errCh         chan error
 }
 
-// newServerTester creates test context for plain TCP frontend
-// connection.
-func newServerTester(args []string, t *testing.T, handler http.HandlerFunc) *serverTester {
-	return newServerTesterInternal(args, t, handler, false, serverPort, nil)
+type options struct {
+	// args is the additional arguments to nghttpx.
+	args []string
+	// handler is the handler to handle the request.  It defaults
+	// to noopHandler.
+	handler http.HandlerFunc
+	// connectPort is the server side port where client connection
+	// is made.  It defaults to serverPort.
+	connectPort int
+	// tls, if set to true, sets up TLS frontend connection.
+	tls bool
+	// tlsConfig is the client side TLS configuration that is used
+	// when tls is true.
+	tlsConfig *tls.Config
+	// tcpData is additional data that are written to connection
+	// before TLS handshake starts.  This field is ignored if tls
+	// is false.
+	tcpData []byte
+	// quic, if set to true, sets up QUIC frontend connection.
+	// quic implies tls = true.
+	quic bool
 }
 
-func newServerTesterConnectPort(args []string, t *testing.T, handler http.HandlerFunc, port int) *serverTester {
-	return newServerTesterInternal(args, t, handler, false, port, nil)
-}
+// newServerTester creates test context.
+func newServerTester(t *testing.T, opts options) *serverTester {
+	if opts.quic {
+		opts.tls = true
+	}
 
-func newServerTesterHandler(args []string, t *testing.T, handler http.Handler) *serverTester {
-	return newServerTesterInternal(args, t, handler, false, serverPort, nil)
-}
+	if opts.handler == nil {
+		opts.handler = noopHandler
+	}
+	if opts.connectPort == 0 {
+		opts.connectPort = serverPort
+	}
 
-// newServerTester creates test context for TLS frontend connection.
-func newServerTesterTLS(args []string, t *testing.T, handler http.HandlerFunc) *serverTester {
-	return newServerTesterInternal(args, t, handler, true, serverPort, nil)
-}
+	ts := httptest.NewUnstartedServer(opts.handler)
 
-func newServerTesterTLSConnectPort(args []string, t *testing.T, handler http.HandlerFunc, port int) *serverTester {
-	return newServerTesterInternal(args, t, handler, true, port, nil)
-}
-
-// newServerTester creates test context for TLS frontend connection
-// with given clientConfig
-func newServerTesterTLSConfig(args []string, t *testing.T, handler http.HandlerFunc, clientConfig *tls.Config) *serverTester {
-	return newServerTesterInternal(args, t, handler, true, serverPort, clientConfig)
-}
-
-// newServerTesterInternal creates test context.  If frontendTLS is
-// true, set up TLS frontend connection.  connectPort is the server
-// side port where client connection is made.
-func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handler, frontendTLS bool, connectPort int, clientConfig *tls.Config) *serverTester {
-	ts := httptest.NewUnstartedServer(handler)
-
-	args := []string{}
-
+	var args []string
 	var backendTLS, dns, externalDNS, acceptProxyProtocol, redirectIfNotTLS, affinityCookie, alpnH1 bool
 
-	for _, k := range src_args {
+	for _, k := range opts.args {
 		switch k {
 		case "--http2-bridge":
 			backendTLS = true
@@ -135,7 +138,7 @@ func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handl
 		ts.Start()
 	}
 	scheme := "http"
-	if frontendTLS {
+	if opts.tls {
 		scheme = "https"
 		args = append(args, testDir+"/server.key", testDir+"/server.crt")
 	}
@@ -175,7 +178,7 @@ func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handl
 	}
 
 	noTLS := ";no-tls"
-	if frontendTLS {
+	if opts.tls {
 		noTLS = ""
 	}
 
@@ -187,7 +190,13 @@ func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handl
 	args = append(args, fmt.Sprintf("-f127.0.0.1,%v%v%v", serverPort, noTLS, proxyProto), b,
 		"--errorlog-file="+logDir+"/log.txt", "-LINFO")
 
-	authority := fmt.Sprintf("127.0.0.1:%v", connectPort)
+	if opts.quic {
+		args = append(args,
+			fmt.Sprintf("-f127.0.0.1,%v;quic", serverPort),
+			"--no-quic-bpf")
+	}
+
+	authority := fmt.Sprintf("127.0.0.1:%v", opts.connectPort)
 
 	st := &serverTester{
 		cmd:          exec.Command(serverBin, args...),
@@ -213,14 +222,20 @@ func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handl
 	for {
 		time.Sleep(50 * time.Millisecond)
 
-		var conn net.Conn
-		var err error
-		if frontendTLS {
+		conn, err := net.Dial("tcp", authority)
+		if err == nil && opts.tls {
+			if len(opts.tcpData) > 0 {
+				if _, err := conn.Write(opts.tcpData); err != nil {
+					st.Close()
+					st.t.Fatal("Error writing TCP data")
+				}
+			}
+
 			var tlsConfig *tls.Config
-			if clientConfig == nil {
+			if opts.tlsConfig == nil {
 				tlsConfig = new(tls.Config)
 			} else {
-				tlsConfig = clientConfig
+				tlsConfig = opts.tlsConfig.Clone()
 			}
 			tlsConfig.InsecureSkipVerify = true
 			if alpnH1 {
@@ -228,9 +243,16 @@ func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handl
 			} else {
 				tlsConfig.NextProtos = []string{"h2"}
 			}
-			conn, err = tls.Dial("tcp", authority, tlsConfig)
-		} else {
-			conn, err = net.Dial("tcp", authority)
+			tlsConn := tls.Client(conn, tlsConfig)
+			err = tlsConn.Handshake()
+			if err == nil {
+				cs := tlsConn.ConnectionState()
+				if !cs.NegotiatedProtocolIsMutual {
+					st.Close()
+					st.t.Fatalf("Error negotiated next protocol is not mutual")
+				}
+				conn = tlsConn
+			}
 		}
 		if err != nil {
 			retry += 1
@@ -239,14 +261,6 @@ func newServerTesterInternal(src_args []string, t *testing.T, handler http.Handl
 				st.t.Fatalf("Error server is not responding too long; server command-line arguments may be invalid")
 			}
 			continue
-		}
-		if frontendTLS {
-			tlsConn := conn.(*tls.Conn)
-			cs := tlsConn.ConnectionState()
-			if !cs.NegotiatedProtocolIsMutual {
-				st.Close()
-				st.t.Fatalf("Error negotiated next protocol is not mutual")
-			}
 		}
 		st.conn = conn
 		break
@@ -375,6 +389,78 @@ func (st *serverTester) websocket(rp requestParam) (*serverResponse, error) {
 	return res, nil
 }
 
+func (st *serverTester) http3(rp requestParam) (*serverResponse, error) {
+	rt := &http3.RoundTripper{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	defer rt.Close()
+
+	c := &http.Client{
+		Transport: rt,
+	}
+
+	method := "GET"
+	if rp.method != "" {
+		method = rp.method
+	}
+
+	var body io.Reader
+
+	if rp.body != nil {
+		body = bytes.NewBuffer(rp.body)
+	}
+
+	reqURL := st.url
+
+	if rp.path != "" {
+		u, err := url.Parse(st.url)
+		if err != nil {
+			st.t.Fatalf("Error parsing URL from st.url %v: %v", st.url, err)
+		}
+		u.Path = ""
+		u.RawQuery = ""
+		reqURL = u.String() + rp.path
+	}
+
+	req, err := http.NewRequest(method, reqURL, body)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, h := range rp.header {
+		req.Header.Add(h.Name, h.Value)
+	}
+
+	req.Header.Add("Test-Case", rp.name)
+
+	// TODO http3 package does not support trailer at the time of
+	// this writing.
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &serverResponse{
+		status:    resp.StatusCode,
+		header:    resp.Header,
+		body:      respBody,
+		connClose: resp.Close,
+	}
+
+	return res, nil
+}
+
 func (st *serverTester) http1(rp requestParam) (*serverResponse, error) {
 	method := "GET"
 	if rp.method != "" {
@@ -430,7 +516,7 @@ func (st *serverTester) http1(rp requestParam) (*serverResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +647,7 @@ loop:
 			var status int
 			status, err = strconv.Atoi(sr.header.Get(":status"))
 			if err != nil {
-				return res, fmt.Errorf("Error parsing status code: %v", err)
+				return res, fmt.Errorf("Error parsing status code: %w", err)
 			}
 			sr.status = status
 			if f.StreamEnded() {
@@ -664,7 +750,7 @@ func cloneHeader(h http.Header) http.Header {
 }
 
 func noopHandler(w http.ResponseWriter, r *http.Request) {
-	ioutil.ReadAll(r.Body)
+	io.ReadAll(r.Body)
 }
 
 type APIResponse struct {

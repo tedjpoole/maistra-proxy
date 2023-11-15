@@ -15,11 +15,16 @@ rem limitations under the License.
 
 rem Compile then run the Rust test.
 
-rem TODO(rw): how do we make this script abort the calling script in appveyor?
-
 cd rust_usage_test
 cargo test -- --quiet || exit /b 1
 cargo run --bin=flatbuffers_alloc_check || exit /b 1
 cargo run --bin=flexbuffers_alloc_check || exit /b 1
 cargo run --bin=monster_example || exit /b 1
+cd ..
+
+cd rust_no_std_compilation_test
+rustup install nightly
+rustup component add rust-src --toolchain nightly
+rustup target add thumbv7m-none-eabi
+cargo build || exit /b 1
 cd ..

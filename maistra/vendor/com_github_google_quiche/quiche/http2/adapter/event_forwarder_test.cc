@@ -3,9 +3,10 @@
 #include <string>
 
 #include "absl/strings/string_view.h"
+#include "quiche/http2/adapter/http2_protocol.h"
 #include "quiche/common/platform/api/quiche_test.h"
-#include "quiche/spdy/core/mock_spdy_framer_visitor.h"
 #include "quiche/spdy/core/spdy_protocol.h"
+#include "quiche/spdy/test_tools/mock_spdy_framer_visitor.h"
 
 namespace http2 {
 namespace adapter {
@@ -32,9 +33,9 @@ TEST(EventForwarderTest, ForwardsEventsWithTruePredicate) {
       std::string(some_data));
 
   EXPECT_CALL(receiver,
-              OnCommonHeader(stream_id, length, /*type=*/0x0, /*flags=*/0x1));
+              OnCommonHeader(stream_id, length, /*type=*/0x0, END_STREAM_FLAG));
   event_forwarder.OnCommonHeader(stream_id, length, /*type=*/0x0,
-                                 /*flags=*/0x1);
+                                 END_STREAM_FLAG);
 
   EXPECT_CALL(receiver, OnDataFrameHeader(stream_id, length, /*fin=*/true));
   event_forwarder.OnDataFrameHeader(stream_id, length, /*fin=*/true);
@@ -89,11 +90,12 @@ TEST(EventForwarderTest, ForwardsEventsWithTruePredicate) {
   EXPECT_CALL(receiver, OnGoAwayFrameData(some_data.data(), some_data.size()));
   event_forwarder.OnGoAwayFrameData(some_data.data(), some_data.size());
 
-  EXPECT_CALL(
-      receiver,
-      OnHeaders(stream_id, /*has_priority=*/false, /*weight=*/42, stream_id + 2,
-                /*exclusive=*/false, /*fin=*/true, /*end=*/true));
-  event_forwarder.OnHeaders(stream_id, /*has_priority=*/false, /*weight=*/42,
+  EXPECT_CALL(receiver,
+              OnHeaders(stream_id, /*payload_length=*/1234,
+                        /*has_priority=*/false, /*weight=*/42, stream_id + 2,
+                        /*exclusive=*/false, /*fin=*/true, /*end=*/true));
+  event_forwarder.OnHeaders(stream_id, /*payload_length=*/1234,
+                            /*has_priority=*/false, /*weight=*/42,
                             stream_id + 2, /*exclusive=*/false, /*fin=*/true,
                             /*end=*/true);
 
@@ -103,8 +105,10 @@ TEST(EventForwarderTest, ForwardsEventsWithTruePredicate) {
   EXPECT_CALL(receiver, OnPushPromise(stream_id, stream_id + 1, /*end=*/true));
   event_forwarder.OnPushPromise(stream_id, stream_id + 1, /*end=*/true);
 
-  EXPECT_CALL(receiver, OnContinuation(stream_id, /*end=*/true));
-  event_forwarder.OnContinuation(stream_id, /*end=*/true);
+  EXPECT_CALL(receiver,
+              OnContinuation(stream_id, /*payload_length=*/42, /*end=*/true));
+  event_forwarder.OnContinuation(stream_id, /*payload_length=*/42,
+                                 /*end=*/true);
 
   const spdy::SpdyAltSvcWireFormat::AlternativeServiceVector altsvc_vector;
   EXPECT_CALL(receiver, OnAltSvc(stream_id, some_data, altsvc_vector));
@@ -120,6 +124,11 @@ TEST(EventForwarderTest, ForwardsEventsWithTruePredicate) {
 
   EXPECT_CALL(receiver, OnUnknownFrame(stream_id, /*frame_type=*/0x4D));
   event_forwarder.OnUnknownFrame(stream_id, /*frame_type=*/0x4D);
+
+  EXPECT_CALL(receiver, OnUnknownFrameStart(stream_id, /*length=*/42,
+                                            /*type=*/0x4D, /*flags=*/0x0));
+  event_forwarder.OnUnknownFrameStart(stream_id, /*length=*/42, /*type=*/0x4D,
+                                      /*flags=*/0x0);
 }
 
 TEST(EventForwarderTest, DoesNotForwardEventsWithFalsePredicate) {
@@ -134,7 +143,7 @@ TEST(EventForwarderTest, DoesNotForwardEventsWithFalsePredicate) {
 
   EXPECT_CALL(receiver, OnCommonHeader).Times(0);
   event_forwarder.OnCommonHeader(stream_id, length, /*type=*/0x0,
-                                 /*flags=*/0x1);
+                                 END_STREAM_FLAG);
 
   EXPECT_CALL(receiver, OnDataFrameHeader).Times(0);
   event_forwarder.OnDataFrameHeader(stream_id, length, /*fin=*/true);
@@ -186,7 +195,8 @@ TEST(EventForwarderTest, DoesNotForwardEventsWithFalsePredicate) {
   event_forwarder.OnGoAwayFrameData(some_data.data(), some_data.size());
 
   EXPECT_CALL(receiver, OnHeaders).Times(0);
-  event_forwarder.OnHeaders(stream_id, /*has_priority=*/false, /*weight=*/42,
+  event_forwarder.OnHeaders(stream_id, /*payload_length=*/1234,
+                            /*has_priority=*/false, /*weight=*/42,
                             stream_id + 2, /*exclusive=*/false, /*fin=*/true,
                             /*end=*/true);
 
@@ -197,7 +207,8 @@ TEST(EventForwarderTest, DoesNotForwardEventsWithFalsePredicate) {
   event_forwarder.OnPushPromise(stream_id, stream_id + 1, /*end=*/true);
 
   EXPECT_CALL(receiver, OnContinuation).Times(0);
-  event_forwarder.OnContinuation(stream_id, /*end=*/true);
+  event_forwarder.OnContinuation(stream_id, /*payload_length=*/42,
+                                 /*end=*/true);
 
   EXPECT_CALL(receiver, OnAltSvc).Times(0);
   const spdy::SpdyAltSvcWireFormat::AlternativeServiceVector altsvc_vector;
@@ -212,6 +223,10 @@ TEST(EventForwarderTest, DoesNotForwardEventsWithFalsePredicate) {
 
   EXPECT_CALL(receiver, OnUnknownFrame).Times(0);
   event_forwarder.OnUnknownFrame(stream_id, /*frame_type=*/0x4D);
+
+  EXPECT_CALL(receiver, OnUnknownFrameStart).Times(0);
+  event_forwarder.OnUnknownFrameStart(stream_id, /*length=*/42, /*type=*/0x4D,
+                                      /*flags=*/0x0);
 }
 
 }  // namespace

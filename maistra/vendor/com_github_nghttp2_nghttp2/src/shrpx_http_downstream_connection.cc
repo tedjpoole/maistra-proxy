@@ -266,13 +266,26 @@ constexpr llhttp_settings_t htp_hooks = {
     htp_msg_begincb,     // llhttp_cb      on_message_begin;
     nullptr,             // llhttp_data_cb on_url;
     nullptr,             // llhttp_data_cb on_status;
+    nullptr,             // llhttp_data_cb on_method;
+    nullptr,             // llhttp_data_cb on_version;
     htp_hdr_keycb,       // llhttp_data_cb on_header_field;
     htp_hdr_valcb,       // llhttp_data_cb on_header_value;
+    nullptr,             // llhttp_data_cb on_chunk_extension_name;
+    nullptr,             // llhttp_data_cb on_chunk_extension_value;
     htp_hdrs_completecb, // llhttp_cb      on_headers_complete;
     htp_bodycb,          // llhttp_data_cb on_body;
     htp_msg_completecb,  // llhttp_cb      on_message_complete;
-    nullptr,             // llhttp_cb      on_chunk_header
-    nullptr,             // llhttp_cb      on_chunk_complete
+    nullptr,             // llhttp_cb      on_url_complete;
+    nullptr,             // llhttp_cb      on_status_complete;
+    nullptr,             // llhttp_cb      on_method_complete;
+    nullptr,             // llhttp_cb      on_version_complete;
+    nullptr,             // llhttp_cb      on_header_field_complete;
+    nullptr,             // llhttp_cb      on_header_value_complete;
+    nullptr,             // llhttp_cb      on_chunk_extension_name_complete;
+    nullptr,             // llhttp_cb      on_chunk_extension_value_complete;
+    nullptr,             // llhttp_cb      on_chunk_header;
+    nullptr,             // llhttp_cb      on_chunk_complete;
+    nullptr,             // llhttp_cb      on_reset;
 };
 } // namespace
 
@@ -912,6 +925,12 @@ int htp_hdrs_completecb(llhttp_t *htp) {
   auto &resp = downstream->response();
   int rv;
 
+  auto &balloc = downstream->get_block_allocator();
+
+  for (auto &kv : resp.fs.headers()) {
+    kv.value = util::rstrip(balloc, kv.value);
+  }
+
   auto config = get_config();
   auto &loggingconf = config->logging;
 
@@ -1138,6 +1157,12 @@ int htp_bodycb(llhttp_t *htp, const char *data, size_t len) {
 namespace {
 int htp_msg_completecb(llhttp_t *htp) {
   auto downstream = static_cast<Downstream *>(htp->data);
+  auto &resp = downstream->response();
+  auto &balloc = downstream->get_block_allocator();
+
+  for (auto &kv : resp.fs.trailers()) {
+    kv.value = util::rstrip(balloc, kv.value);
+  }
 
   // llhttp does not treat "200 connection established" response
   // against CONNECT request, and in that case, this function is not

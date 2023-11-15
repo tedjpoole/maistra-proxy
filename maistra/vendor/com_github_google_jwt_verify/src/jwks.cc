@@ -17,7 +17,6 @@
 #include <assert.h>
 
 #include <iostream>
-#include <fstream>
 
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -26,9 +25,8 @@
 #include "jwt_verify_lib/struct_utils.h"
 #include "openssl/bio.h"
 #include "openssl/bn.h"
-#include "common.h"
+#include "openssl/curve25519.h"
 #include "openssl/ecdsa.h"
-#include "openssl/err.h"
 #include "openssl/evp.h"
 #include "openssl/rsa.h"
 #include "openssl/sha.h"
@@ -429,8 +427,6 @@ JwksPtr Jwks::createFrom(const std::string& pkey, Type type) {
     case Type::PEM:
       keys->createFromPemCore(pkey);
       break;
-    default:
-      break;
   }
   return keys;
 }
@@ -477,7 +473,7 @@ void Jwks::createFromPemCore(const std::string& pkey_pem) {
   }
   assert(e.getStatus() == Status::Ok);
 
-  switch (EVP_PKEY_type(EVP_PKEY_id(evp_pkey.get()))) {
+  switch (EVP_PKEY_id(evp_pkey.get())) {
     case EVP_PKEY_RSA:
       key_ptr->rsa_.reset(EVP_PKEY_get1_RSA(evp_pkey.get()));
       key_ptr->kty_ = "RSA";

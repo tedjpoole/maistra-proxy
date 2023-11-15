@@ -17,8 +17,7 @@
 # against.
 # This version should be updated together with the version of Bazel
 # in .bazelversion.
-# TODO(alexeagle): assert this is the case in a test
-BAZEL_VERSION = "4.2.2"
+BAZEL_VERSION = "6.0.0"
 
 # Versions of Bazel which users should be able to use.
 # Ensures we don't break backwards-compatibility,
@@ -29,3 +28,6 @@ SUPPORTED_BAZEL_VERSIONS = [
     # TODO: add LTS versions of bazel like 1.0.0, 2.0.0
     BAZEL_VERSION,
 ]
+
+def bazel_version_to_binary_label(version):
+    return "@build_bazel_bazel_%s//:bazel_binary" % version.replace(".", "_")

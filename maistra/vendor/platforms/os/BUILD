@@ -29,6 +29,11 @@ constraint_value(
 )
 
 constraint_value(
+    name = "haiku",
+    constraint_setting = ":os",
+)
+
+constraint_value(
     name = "android",
     constraint_setting = ":os",
 )
@@ -78,6 +83,11 @@ constraint_value(
 )
 
 constraint_value(
+    name = "visionos",
+    constraint_setting = ":os",
+)
+
+constraint_value(
     name = "qnx",
     constraint_setting = ":os",
 )
@@ -99,5 +109,10 @@ constraint_value(
 
 constraint_value(
     name = "fuchsia",
+    constraint_setting = ":os",
+)
+
+constraint_value(
+    name = "chromiumos",
     constraint_setting = ":os",
 )

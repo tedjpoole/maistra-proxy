@@ -22,11 +22,9 @@ struct QUIC_EXPORT_PRIVATE QuicTransmissionInfo {
   // Constructs a Transmission with a new all_transmissions set
   // containing |packet_number|.
   QuicTransmissionInfo(EncryptionLevel level,
-                       TransmissionType transmission_type,
-                       QuicTime sent_time,
-                       QuicPacketLength bytes_sent,
-                       bool has_crypto_handshake,
-                       bool has_ack_frequency);
+                       TransmissionType transmission_type, QuicTime sent_time,
+                       QuicPacketLength bytes_sent, bool has_crypto_handshake,
+                       bool has_ack_frequency, QuicEcnCodepoint ecn_codepoint);
 
   QuicTransmissionInfo(const QuicTransmissionInfo& other);
 
@@ -54,6 +52,8 @@ struct QUIC_EXPORT_PRIVATE QuicTransmissionInfo {
   QuicPacketNumber first_sent_after_loss;
   // The largest_acked in the ack frame, if the packet contains an ack.
   QuicPacketNumber largest_acked;
+  // The ECN codepoint with which this packet was sent.
+  QuicEcnCodepoint ecn_codepoint;
 };
 // TODO(ianswett): Add static_assert when size of this struct is reduced below
 // 64 bytes.

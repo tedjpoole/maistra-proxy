@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,6 +19,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 #include "tool_setup.h"
@@ -68,23 +70,6 @@ struct OutStruct {
   curl_off_t init;
 };
 
-
-/*
- * InStruct variables keep track of information relative to curl's
- * input reading, which may take place from stdin or from some file.
- *
- * 'fd' member is either 'stdin' file descriptor number STDIN_FILENO
- * or a file descriptor as returned from an 'open' call for some file.
- *
- * 'config' member is a pointer to associated 'OperationConfig' struct.
- */
-
-struct InStruct {
-  int fd;
-  struct OperationConfig *config;
-};
-
-
 /*
  * A linked list of these 'getout' nodes contain URL's to fetch,
  * as well as information relative to where URL contents should
@@ -127,7 +112,8 @@ typedef enum {
   HTTPREQ_GET,
   HTTPREQ_HEAD,
   HTTPREQ_MIMEPOST,
-  HTTPREQ_SIMPLEPOST
+  HTTPREQ_SIMPLEPOST,
+  HTTPREQ_PUT
 } HttpReq;
 
 

@@ -116,6 +116,7 @@ def _default_args():
         }) + select({
             "@v8//bazel/config:is_clang": [
                 "-Wno-invalid-offsetof",
+                "-Wno-unneeded-internal-declaration",
                 "-std=c++17",
             ],
             "@v8//bazel/config:is_gcc": [
@@ -131,6 +132,7 @@ def _default_args():
                 "-Wno-redundant-move",
                 "-Wno-return-type",
                 "-Wno-stringop-overflow",
+                "-Wno-nonnull",
                 # Use GNU dialect, because GCC doesn't allow using
                 # ##__VA_ARGS__ when in standards-conforming mode.
                 "-std=gnu++17",
@@ -154,6 +156,18 @@ def _default_args():
         }) + select({
             "@envoy//bazel:no_debug_info": [
                 "-g0",
+            ],
+            "//conditions:default": [],
+        }) + select({
+            "@v8//bazel/config:is_macos": [
+                # The clang available on macOS catalina has a warning that isn't clean on v8 code.
+                "-Wno-range-loop-analysis",
+
+                # To supress warning on deprecated declaration on v8 code. For example:
+                # external/v8/src/base/platform/platform-darwin.cc:56:22: 'getsectdatafromheader_64'
+                # is deprecated: first deprecated in macOS 13.0.
+                # https://bugs.chromium.org/p/v8/issues/detail?id=13428.
+                "-Wno-deprecated-declarations",
             ],
             "//conditions:default": [],
         }),
@@ -388,13 +402,13 @@ def _v8_target_cpu_transition_impl(settings, attr):
         "k8": "x64",
         "x86_64": "x64",
         "darwin": "x64",
-        "darwin_arm64": "arm64",
         "darwin_x86_64": "x64",
         "x64_windows": "x64",
         "x86": "ia32",
         "aarch64": "arm64",
         "arm64-v8a": "arm64",
         "arm": "arm64",
+        "darwin_arm64": "arm64",
         "armeabi-v7a": "arm32",
         "s390x": "s390x",
         "riscv64": "riscv64",
@@ -498,7 +512,6 @@ def build_config_content(cpu, icu):
         ("target_cpu", cpu),
         ("v8_current_cpu", cpu),
         ("v8_dict_property_const_tracking", "false"),
-        ("v8_enable_atomic_marking_state", "false"),
         ("v8_enable_atomic_object_field_writes", "false"),
         ("v8_enable_concurrent_marking", "false"),
         ("v8_enable_i18n_support", icu),

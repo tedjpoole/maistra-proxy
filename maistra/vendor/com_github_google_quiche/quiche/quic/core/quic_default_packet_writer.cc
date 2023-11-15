@@ -14,17 +14,15 @@ QuicDefaultPacketWriter::QuicDefaultPacketWriter(int fd)
 QuicDefaultPacketWriter::~QuicDefaultPacketWriter() = default;
 
 WriteResult QuicDefaultPacketWriter::WritePacket(
-    const char* buffer,
-    size_t buf_len,
-    const QuicIpAddress& self_address,
-    const QuicSocketAddress& peer_address,
-    PerPacketOptions* options) {
+    const char* buffer, size_t buf_len, const QuicIpAddress& self_address,
+    const QuicSocketAddress& peer_address, PerPacketOptions* options) {
   QUICHE_DCHECK(!write_blocked_);
-  QUICHE_DCHECK(nullptr == options)
-      << "QuicDefaultPacketWriter does not accept any options.";
   QuicUdpPacketInfo packet_info;
   packet_info.SetPeerAddress(peer_address);
   packet_info.SetSelfIp(self_address);
+  if (options != nullptr) {
+    packet_info.SetEcnCodepoint(options->ecn_codepoint);
+  }
   WriteResult result =
       QuicUdpSocketApi().WritePacket(fd_, buffer, buf_len, packet_info);
   if (IsWriteBlockedStatus(result.status)) {
@@ -33,13 +31,9 @@ WriteResult QuicDefaultPacketWriter::WritePacket(
   return result;
 }
 
-bool QuicDefaultPacketWriter::IsWriteBlocked() const {
-  return write_blocked_;
-}
+bool QuicDefaultPacketWriter::IsWriteBlocked() const { return write_blocked_; }
 
-void QuicDefaultPacketWriter::SetWritable() {
-  write_blocked_ = false;
-}
+void QuicDefaultPacketWriter::SetWritable() { write_blocked_ = false; }
 
 absl::optional<int> QuicDefaultPacketWriter::MessageTooBigErrorCode() const {
   return EMSGSIZE;
@@ -50,13 +44,9 @@ QuicByteCount QuicDefaultPacketWriter::GetMaxPacketSize(
   return kMaxOutgoingPacketSize;
 }
 
-bool QuicDefaultPacketWriter::SupportsReleaseTime() const {
-  return false;
-}
+bool QuicDefaultPacketWriter::SupportsReleaseTime() const { return false; }
 
-bool QuicDefaultPacketWriter::IsBatchMode() const {
-  return false;
-}
+bool QuicDefaultPacketWriter::IsBatchMode() const { return false; }
 
 QuicPacketBuffer QuicDefaultPacketWriter::GetNextWriteLocation(
     const QuicIpAddress& /*self_address*/,

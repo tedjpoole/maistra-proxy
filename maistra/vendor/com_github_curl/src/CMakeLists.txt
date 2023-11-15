@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 #
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
+#
+# SPDX-License-Identifier: curl
 #
 ###########################################################################
 set(EXE_NAME curl)
@@ -45,9 +47,7 @@ if(USE_MANUAL)
 else()
   add_custom_command(
     OUTPUT tool_hugehelp.c
-    COMMAND ${CMAKE_COMMAND} -E echo "/* built-in manual is disabled, blank function */" > tool_hugehelp.c
-    COMMAND ${CMAKE_COMMAND} -E echo "#include \"tool_hugehelp.h\"" >> tool_hugehelp.c
-    COMMAND ${CMAKE_COMMAND} -E echo "void hugehelp(void) {}" >> tool_hugehelp.c
+    COMMAND ${CMAKE_COMMAND} -E echo "#include \"tool_hugehelp.h\"" > tool_hugehelp.c
     DEPENDS
       "${CMAKE_CURRENT_SOURCE_DIR}/tool_hugehelp.h"
     VERBATIM)
@@ -57,20 +57,32 @@ endif()
 transform_makefile_inc("Makefile.inc" "${CMAKE_CURRENT_BINARY_DIR}/Makefile.inc.cmake")
 include(${CMAKE_CURRENT_BINARY_DIR}/Makefile.inc.cmake)
 
-if(MSVC)
-  list(APPEND CURL_FILES curl.rc)
+if(WIN32)
+  list(APPEND CURL_CFILES curl.rc)
 endif()
 
-# CURL_FILES comes from Makefile.inc
+# CURL_CFILES, CURLX_CFILES, CURL_HFILES come from Makefile.inc
+if(NOT BUILD_SHARED_LIBS)
+  set(CURLX_CFILES ../lib/dynbuf.c)
+endif()
+
 add_executable(
   ${EXE_NAME}
-  ${CURL_FILES}
+  ${CURL_CFILES} ${CURLX_CFILES} ${CURL_HFILES}
   )
 
 add_executable(
   ${PROJECT_NAME}::${EXE_NAME}
   ALIAS ${EXE_NAME}
   )
+
+add_library(
+  curltool # special libcurltool library just for unittests
+  STATIC
+  EXCLUDE_FROM_ALL
+  ${CURL_CFILES} ${CURLX_CFILES} ${CURL_HFILES}
+)
+target_compile_definitions(curltool PUBLIC UNITTESTS CURL_STATICLIB)
 
 if(CURL_HAS_LTO)
   set_target_properties(${EXE_NAME} PROPERTIES
@@ -80,8 +92,6 @@ endif()
 
 if(ENABLE_UNICODE AND MINGW)
   target_link_libraries(${EXE_NAME} -municode)
-  # GCC doesn't know about wmain
-  set_source_files_properties(tool_main.c PROPERTIES COMPILE_FLAGS "-Wno-missing-prototypes -Wno-missing-declarations")
 endif()
 
 source_group("curlX source files" FILES ${CURLX_CFILES})
@@ -109,6 +119,6 @@ target_link_libraries(${EXE_NAME} libcurl ${CURL_LIBS})
 
 install(TARGETS ${EXE_NAME} EXPORT ${TARGETS_EXPORT_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
 export(TARGETS ${EXE_NAME}
-       APPEND FILE ${PROJECT_BINARY_DIR}/curl-target.cmake
+       FILE ${PROJECT_BINARY_DIR}/curl-target.cmake
        NAMESPACE ${PROJECT_NAME}::
 )

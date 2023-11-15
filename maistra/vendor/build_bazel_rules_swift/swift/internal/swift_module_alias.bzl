@@ -15,8 +15,9 @@
 """Implementation of the `swift_module_alias` rule."""
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
-load(":compiling.bzl", "new_objc_provider", "output_groups_from_other_compilation_outputs")
+load(":compiling.bzl", "output_groups_from_other_compilation_outputs")
 load(":derived_files.bzl", "derived_files")
+load(":linking.bzl", "new_objc_provider")
 load(":providers.bzl", "SwiftInfo", "SwiftToolchainInfo")
 load(":swift_common.bzl", "swift_common")
 load(":utils.bzl", "compact", "get_providers")
@@ -59,6 +60,7 @@ def _swift_module_alias_impl(ctx):
         copts = ["-parse-as-library"],
         deps = deps,
         feature_configuration = feature_configuration,
+        is_test = ctx.attr.testonly,
         module_name = module_name,
         srcs = [reexport_src],
         swift_toolchain = swift_toolchain,
@@ -71,6 +73,7 @@ def _swift_module_alias_impl(ctx):
             actions = ctx.actions,
             compilation_outputs = compilation_outputs,
             feature_configuration = feature_configuration,
+            is_test = ctx.attr.testonly,
             label = ctx.label,
             linking_contexts = [
                 dep[CcInfo].linking_context
@@ -119,8 +122,10 @@ def _swift_module_alias_impl(ctx):
         ),
         deps = deps,
         feature_configuration = feature_configuration,
+        is_test = ctx.attr.testonly,
         module_context = module_context,
         libraries_to_link = [linking_output.library_to_link],
+        swift_toolchain = swift_toolchain,
     ))
 
     return providers

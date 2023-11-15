@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+# Copyright 2023 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import os
 import subprocess
@@ -37,12 +51,11 @@ class PipInstallTest(unittest.TestCase):
         self.assertListEqual(
             env.split(" "),
             [
-                "external/pip/pypi__s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/INSTALL.md",
-                "external/pip/pypi__s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/LICENSE",
-                "external/pip/pypi__s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/NEWS",
-                "external/pip/pypi__s3cmd/s3cmd-2.1.0.data/data/share/doc/packages/s3cmd/README.md",
-                "external/pip/pypi__s3cmd/s3cmd-2.1.0.data/data/share/man/man1/s3cmd.1",
-                "external/pip/pypi__s3cmd/s3cmd-2.1.0.data/scripts/s3cmd",
+                "external/pip_s3cmd/data/share/doc/packages/s3cmd/INSTALL.md",
+                "external/pip_s3cmd/data/share/doc/packages/s3cmd/LICENSE",
+                "external/pip_s3cmd/data/share/doc/packages/s3cmd/NEWS",
+                "external/pip_s3cmd/data/share/doc/packages/s3cmd/README.md",
+                "external/pip_s3cmd/data/share/man/man1/s3cmd.1",
             ],
         )
 
@@ -52,12 +65,13 @@ class PipInstallTest(unittest.TestCase):
         self.assertListEqual(
             env.split(" "),
             [
-                "external/pip/pypi__boto3/boto3-1.14.51.dist-info/DESCRIPTION.rst",
-                "external/pip/pypi__boto3/boto3-1.14.51.dist-info/METADATA",
-                "external/pip/pypi__boto3/boto3-1.14.51.dist-info/RECORD",
-                "external/pip/pypi__boto3/boto3-1.14.51.dist-info/WHEEL",
-                "external/pip/pypi__boto3/boto3-1.14.51.dist-info/metadata.json",
-                "external/pip/pypi__boto3/boto3-1.14.51.dist-info/top_level.txt",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/DESCRIPTION.rst",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/INSTALLER",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/METADATA",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/RECORD",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/WHEEL",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/metadata.json",
+                "external/pip_boto3/site-packages/boto3-1.14.63.dist-info/top_level.txt",
             ],
         )
 

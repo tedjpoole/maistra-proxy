@@ -24,6 +24,11 @@ load(
 )
 load(":derived_files.bzl", "derived_files")
 load(":features.bzl", "get_cc_feature_configuration")
+load(
+    ":developer_dirs.bzl",
+    "developer_dirs_linkopts",
+)
+load(":utils.bzl", "get_providers")
 
 def create_linking_context_from_compilation_outputs(
         *,
@@ -32,6 +37,7 @@ def create_linking_context_from_compilation_outputs(
         alwayslink = False,
         compilation_outputs,
         feature_configuration,
+        is_test,
         label,
         linking_contexts = [],
         module_context,
@@ -60,6 +66,7 @@ def create_linking_context_from_compilation_outputs(
             the value returned by `swift_common.compile`.
         feature_configuration: A feature configuration obtained from
             `swift_common.configure_features`.
+        is_test: Represents if the `testonly` value of the context.
         label: The `Label` of the target being built. This is used as the owner
             of the linker inputs created for post-compile actions (if any), and
             the label's name component also determines the name of the artifact
@@ -142,6 +149,11 @@ def create_linking_context_from_compilation_outputs(
     if not name:
         name = label.name
 
+    if is_test:
+        developer_paths_linkopts = developer_dirs_linkopts(swift_toolchain.developer_dirs)
+    else:
+        developer_paths_linkopts = []
+
     return cc_common.create_linking_context_from_compilation_outputs(
         actions = actions,
         feature_configuration = get_cc_feature_configuration(
@@ -150,13 +162,115 @@ def create_linking_context_from_compilation_outputs(
         cc_toolchain = swift_toolchain.cc_toolchain_info,
         compilation_outputs = compilation_outputs,
         name = name,
-        user_link_flags = user_link_flags,
+        user_link_flags = user_link_flags + developer_paths_linkopts,
         linking_contexts = linking_contexts + extra_linking_contexts,
         alwayslink = alwayslink,
         additional_inputs = additional_inputs,
         disallow_static_libraries = False,
         disallow_dynamic_library = True,
         grep_includes = None,
+    )
+
+def new_objc_provider(
+        *,
+        additional_link_inputs = [],
+        additional_objc_infos = [],
+        alwayslink = False,
+        deps,
+        feature_configuration,
+        is_test,
+        libraries_to_link,
+        module_context,
+        user_link_flags = [],
+        swift_toolchain):
+    """Creates an `apple_common.Objc` provider for a Swift target.
+
+    Args:
+        additional_link_inputs: Additional linker input files that should be
+            propagated to dependents.
+        additional_objc_infos: Additional `apple_common.Objc` providers from
+            transitive dependencies not provided by the `deps` argument.
+        alwayslink: If True, any binary that depends on the providers returned
+            by this function will link in all of the library's object files,
+            even if some contain no symbols referenced by the binary.
+        deps: The dependencies of the target being built, whose `Objc` providers
+            will be passed to the new one in order to propagate the correct
+            transitive fields.
+        feature_configuration: The Swift feature configuration.
+        is_test: Represents if the `testonly` value of the context.
+        libraries_to_link: A list (typically of one element) of the
+            `LibraryToLink` objects from which the static archives (`.a` files)
+            containing the target's compiled code will be retrieved.
+        module_context: The module context as returned by
+            `swift_common.compile`.
+        user_link_flags: Linker options that should be propagated to dependents.
+        swift_toolchain: The `SwiftToolchainInfo` provider of the toolchain.
+
+    Returns:
+        An `apple_common.Objc` provider that should be returned by the calling
+        rule.
+    """
+
+    # The link action registered by `apple_common.link_multi_arch_binary` only
+    # looks at `Objc` providers, not `CcInfo`, for libraries to link.
+    # Dependencies from an `objc_library` to a `cc_library` are handled as a
+    # special case, but other `cc_library` dependencies (such as `swift_library`
+    # to `cc_library`) would be lost since they do not receive the same
+    # treatment. Until those special cases are resolved via the unification of
+    # the Obj-C and C++ rules, we need to collect libraries from `CcInfo` and
+    # put them into the new `Objc` provider.
+    transitive_cc_libs = []
+    for cc_info in get_providers(deps, CcInfo):
+        static_libs = []
+        for linker_input in cc_info.linking_context.linker_inputs.to_list():
+            for library_to_link in linker_input.libraries:
+                library = library_to_link.static_library
+                if library:
+                    static_libs.append(library)
+        transitive_cc_libs.append(depset(static_libs, order = "topological"))
+
+    direct_libraries = []
+    force_load_libraries = []
+
+    for library_to_link in libraries_to_link:
+        library = library_to_link.static_library
+        if library:
+            direct_libraries.append(library)
+            if alwayslink:
+                force_load_libraries.append(library)
+
+    if feature_configuration and should_embed_swiftmodule_for_debugging(
+        feature_configuration = feature_configuration,
+        module_context = module_context,
+    ):
+        module_file = module_context.swift.swiftmodule
+        debug_link_flags = ["-Wl,-add_ast_path,{}".format(module_file.path)]
+        debug_link_inputs = [module_file]
+    else:
+        debug_link_flags = []
+        debug_link_inputs = []
+
+    if is_test:
+        developer_paths_linkopts = developer_dirs_linkopts(swift_toolchain.developer_dirs)
+    else:
+        developer_paths_linkopts = []
+
+    return apple_common.new_objc_provider(
+        force_load_library = depset(
+            force_load_libraries,
+            order = "topological",
+        ),
+        library = depset(
+            direct_libraries,
+            transitive = transitive_cc_libs,
+            order = "topological",
+        ),
+        link_inputs = depset(additional_link_inputs + debug_link_inputs),
+        linkopt = depset(user_link_flags + debug_link_flags + developer_paths_linkopts),
+        providers = get_providers(
+            deps,
+            apple_common.Objc,
+        ) + additional_objc_infos,
     )
 
 def register_link_binary_action(
@@ -241,6 +355,10 @@ def register_link_binary_action(
                 "-framework",
                 objc.static_framework_names.to_list(),
             ))
+            dep_link_flags.extend([
+                lib.path
+                for lib in objc.imported_library.to_list()
+            ])
 
             linking_contexts.append(
                 cc_common.create_linking_context(
@@ -248,7 +366,9 @@ def register_link_binary_action(
                         cc_common.create_linker_input(
                             owner = owner,
                             user_link_flags = dep_link_flags,
-                            additional_inputs = objc.static_framework_file,
+                            additional_inputs = depset(
+                                transitive = [objc.static_framework_file, objc.imported_library],
+                            ),
                         ),
                     ]),
                 ),

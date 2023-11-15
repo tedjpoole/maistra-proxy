@@ -12,6 +12,7 @@ _PROTO_SUBPACKAGE_DEPS = [
     "//google/devtools/containeranalysis/v1beta1/attestation:attestation_proto",
     "//google/devtools/containeranalysis/v1beta1/build:build_proto",
     "//google/devtools/containeranalysis/v1beta1/common:common_proto",
+    "//google/devtools/containeranalysis/v1beta1/cvss:cvss_proto",
     "//google/devtools/containeranalysis/v1beta1/deployment:deployment_proto",
     "//google/devtools/containeranalysis/v1beta1/discovery:discovery_proto",
     "//google/devtools/containeranalysis/v1beta1/grafeas:grafeas_proto",
@@ -29,6 +30,9 @@ proto_library(
     ],
     deps = [
         "//google/api:annotations_proto",
+        "//google/api:client_proto",
+        "//google/api:field_behavior_proto",
+        "//google/api:resource_proto",
         "//google/iam/v1:iam_policy_proto",
         "//google/iam/v1:policy_proto",
         "@com_google_protobuf//:timestamp_proto",
@@ -42,8 +46,6 @@ proto_library_with_info(
         ":containeranalysis_proto",
     ] + _PROTO_SUBPACKAGE_DEPS,
 )
-
-"//google/devtools/containeranalysis/v1beta1/attestation:_proto"
 
 ##############################################################################
 # Java
@@ -98,12 +100,14 @@ java_grpc_library(
 
 java_gapic_library(
     name = "containeranalysis_java_gapic",
-    src = ":containeranalysis_proto_with_info",
+    srcs = [":containeranalysis_proto_with_info"],
     gapic_yaml = "containeranalysis_gapic.yaml",
-    service_yaml = "//google/devtools/containeranalysis:containeranalysis_v1beta1.yaml",
+    grpc_service_config = "containeranalysis_grpc_service_config.json",
+    rest_numeric_enums = True,
     test_deps = [
         ":containeranalysis_java_grpc",
     ] + _JAVA_GRPC_SUBPACKAGE_DEPS,
+    transport = "grpc+rest",
     deps = [
         ":containeranalysis_java_proto",
         "//google/iam/v1:iam_java_proto",
@@ -113,7 +117,9 @@ java_gapic_library(
 java_gapic_test(
     name = "containeranalysis_java_gapic_test_suite",
     test_classes = [
+        "com.google.cloud.devtools.containeranalysis.v1beta1.ContainerAnalysisV1Beta1ClientHttpJsonTest",
         "com.google.cloud.devtools.containeranalysis.v1beta1.ContainerAnalysisV1Beta1ClientTest",
+        "com.google.cloud.devtools.containeranalysis.v1beta1.GrafeasV1Beta1ClientHttpJsonTest",
         "com.google.cloud.devtools.containeranalysis.v1beta1.GrafeasV1Beta1ClientTest",
     ],
     runtime_deps = ["containeranalysis_java_gapic_test"],
@@ -121,7 +127,8 @@ java_gapic_test(
 
 # Open Source Packages
 java_gapic_assembly_gradle_pkg(
-    name = "google-cloud-containeranalysis-v1-java",
+    name = "google-cloud-devtools-containeranalysis-v1beta1-java",
+    transport = "grpc+rest",
     deps = [
         ":containeranalysis_java_gapic",
         ":containeranalysis_java_grpc",
@@ -154,10 +161,12 @@ go_proto_library(
 
 go_gapic_library(
     name = "containeranalysis_go_gapic",
-    src = ":containeranalysis_proto_with_info",
-    gapic_yaml = "containeranalysis_gapic.yaml",
-    importpath = "cloud.google.com/go/containeranalysis/apiv1beta1",
-    service_yaml = "//google/devtools/containeranalysis:containeranalysis_v1beta1.yaml",
+    srcs = [":containeranalysis_proto_with_info"],
+    grpc_service_config = "containeranalysis_grpc_service_config.json",
+    importpath = "cloud.google.com/go/containeranalysis/apiv1beta1;containeranalysis",
+    rest_numeric_enums = True,
+    service_yaml = "containeranalysis_v1beta1.yaml",
+    transport = "grpc+rest",
     deps = [
         ":containeranalysis_go_proto",
         "//google/devtools/containeranalysis/v1beta1/attestation:attestation_go_proto",
@@ -184,10 +193,9 @@ go_test(
 
 # Open Source Packages
 go_gapic_assembly_pkg(
-    name = "gapi-cloud-containeranalysis-v1-go",
+    name = "gapi-cloud-devtools-containeranalysis-v1beta1-go",
     deps = [
         ":containeranalysis_go_gapic",
-        ":containeranalysis_go_gapic_srcjar-smoke-test.srcjar",
         ":containeranalysis_go_gapic_srcjar-test.srcjar",
         ":containeranalysis_go_proto",
         "//google/devtools/containeranalysis/v1beta1/attestation:attestation_go_proto",
@@ -202,4 +210,35 @@ go_gapic_assembly_pkg(
         "//google/devtools/containeranalysis/v1beta1/source:source_go_proto",
         "//google/devtools/containeranalysis/v1beta1/vulnerability:vulnerability_go_proto",
     ],
+)
+
+##############################################################################
+# Node.js
+##############################################################################
+load(
+    "@com_google_googleapis_imports//:imports.bzl",
+    "nodejs_gapic_assembly_pkg",
+    "nodejs_gapic_library",
+)
+
+nodejs_gapic_library(
+    name = "containeranalysis_nodejs_gapic",
+    package_name = "@google-cloud/containeranalysis",
+    src = ":containeranalysis_proto_with_info",
+    extra_protoc_parameters = ["metadata"],
+    grpc_service_config = "containeranalysis_grpc_service_config.json",
+    main_service = "containeranalysis",
+    package = "google.devtools.containeranalysis.v1beta1",
+    rest_numeric_enums = True,
+    service_yaml = "containeranalysis_v1beta1.yaml",
+    transport = "grpc+rest",
+    deps = [],
+)
+
+nodejs_gapic_assembly_pkg(
+    name = "devtools-containeranalysis-v1beta1-nodejs",
+    deps = [
+        ":containeranalysis_nodejs_gapic",
+        ":containeranalysis_proto",
+    ] + _PROTO_SUBPACKAGE_DEPS,
 )

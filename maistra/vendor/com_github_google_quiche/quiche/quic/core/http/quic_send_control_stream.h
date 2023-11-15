@@ -7,9 +7,11 @@
 
 #include "quiche/quic/core/http/http_encoder.h"
 #include "quiche/quic/core/quic_stream.h"
+#include "quiche/quic/core/quic_stream_priority.h"
 #include "quiche/quic/core/quic_types.h"
 #include "quiche/quic/platform/api/quic_export.h"
 #include "quiche/quic/platform/api/quic_logging.h"
+#include "quiche/common/platform/api/quiche_logging.h"
 
 namespace quic {
 
@@ -21,8 +23,7 @@ class QUIC_EXPORT_PRIVATE QuicSendControlStream : public QuicStream {
  public:
   // |session| can't be nullptr, and the ownership is not passed. The stream can
   // only be accessed through the session.
-  QuicSendControlStream(QuicStreamId id,
-                        QuicSpdySession* session,
+  QuicSendControlStream(QuicStreamId id, QuicSpdySession* session,
                         const SettingsFrame& settings);
   QuicSendControlStream(const QuicSendControlStream&) = delete;
   QuicSendControlStream& operator=(const QuicSendControlStream&) = delete;
@@ -39,7 +40,7 @@ class QUIC_EXPORT_PRIVATE QuicSendControlStream : public QuicStream {
 
   // Send a PRIORITY_UPDATE frame on this stream, and a SETTINGS frame
   // beforehand if one has not been already sent.
-  void WritePriorityUpdate(const PriorityUpdateFrame& priority_update);
+  void WritePriorityUpdate(QuicStreamId stream_id, HttpStreamPriority priority);
 
   // Send a GOAWAY frame on this stream, and a SETTINGS frame beforehand if one
   // has not been already sent.
@@ -47,7 +48,7 @@ class QUIC_EXPORT_PRIVATE QuicSendControlStream : public QuicStream {
 
   // The send control stream is write unidirectional, so this method should
   // never be called.
-  void OnDataAvailable() override { QUIC_NOTREACHED(); }
+  void OnDataAvailable() override { QUICHE_NOTREACHED(); }
 
  private:
   // Track if a settings frame is already sent.

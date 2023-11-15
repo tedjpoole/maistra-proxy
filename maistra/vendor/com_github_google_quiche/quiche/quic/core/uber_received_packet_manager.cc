@@ -38,8 +38,7 @@ bool UberReceivedPacketManager::IsAwaitingPacket(
 }
 
 const QuicFrame UberReceivedPacketManager::GetUpdatedAckFrame(
-    PacketNumberSpace packet_number_space,
-    QuicTime approximate_now) {
+    PacketNumberSpace packet_number_space, QuicTime approximate_now) {
   if (!supports_multiple_packet_number_spaces_) {
     return received_packet_managers_[0].GetUpdatedAckFrame(approximate_now);
   }
@@ -48,21 +47,20 @@ const QuicFrame UberReceivedPacketManager::GetUpdatedAckFrame(
 }
 
 void UberReceivedPacketManager::RecordPacketReceived(
-    EncryptionLevel decrypted_packet_level,
-    const QuicPacketHeader& header,
-    QuicTime receipt_time) {
+    EncryptionLevel decrypted_packet_level, const QuicPacketHeader& header,
+    QuicTime receipt_time, QuicEcnCodepoint ecn_codepoint) {
   if (!supports_multiple_packet_number_spaces_) {
-    received_packet_managers_[0].RecordPacketReceived(header, receipt_time);
+    received_packet_managers_[0].RecordPacketReceived(header, receipt_time,
+                                                      ecn_codepoint);
     return;
   }
   received_packet_managers_[QuicUtils::GetPacketNumberSpace(
                                 decrypted_packet_level)]
-      .RecordPacketReceived(header, receipt_time);
+      .RecordPacketReceived(header, receipt_time, ecn_codepoint);
 }
 
 void UberReceivedPacketManager::DontWaitForPacketsBefore(
-    EncryptionLevel decrypted_packet_level,
-    QuicPacketNumber least_unacked) {
+    EncryptionLevel decrypted_packet_level, QuicPacketNumber least_unacked) {
   if (!supports_multiple_packet_number_spaces_) {
     received_packet_managers_[0].DontWaitForPacketsBefore(least_unacked);
     return;

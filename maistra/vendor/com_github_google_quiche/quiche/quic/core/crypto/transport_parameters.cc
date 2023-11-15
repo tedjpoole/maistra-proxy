@@ -53,6 +53,8 @@ enum TransportParameters::TransportParameterId : uint64_t {
 
   kMaxDatagramFrameSize = 0x20,
 
+  kGoogleHandshakeMessage = 0x26ab,
+
   kInitialRoundTripTime = 0x3127,
   kGoogleConnectionOptions = 0x3128,
   // 0x3129 was used to convey the user agent string.
@@ -68,6 +70,9 @@ enum TransportParameters::TransportParameterId : uint64_t {
 };
 
 namespace {
+
+constexpr QuicVersionLabel kReservedVersionMask = 0x0f0f0f0f;
+constexpr QuicVersionLabel kReservedVersionBits = 0x0a0a0a0a;
 
 // The following constants define minimum and maximum allowed values for some of
 // the parameters. These come from the "Transport Parameter Definitions"
@@ -119,6 +124,8 @@ std::string TransportParameterIdToString(
       return "retry_source_connection_id";
     case TransportParameters::kMaxDatagramFrameSize:
       return "max_datagram_frame_size";
+    case TransportParameters::kGoogleHandshakeMessage:
+      return "google_handshake_message";
     case TransportParameters::kInitialRoundTripTime:
       return "initial_round_trip_time";
     case TransportParameters::kGoogleConnectionOptions:
@@ -154,6 +161,7 @@ bool TransportParameterIdIsKnown(
     case TransportParameters::kInitialSourceConnectionId:
     case TransportParameters::kRetrySourceConnectionId:
     case TransportParameters::kMaxDatagramFrameSize:
+    case TransportParameters::kGoogleHandshakeMessage:
     case TransportParameters::kInitialRoundTripTime:
     case TransportParameters::kGoogleConnectionOptions:
     case TransportParameters::kGoogleQuicVersion:
@@ -167,10 +175,8 @@ bool TransportParameterIdIsKnown(
 }  // namespace
 
 TransportParameters::IntegerParameter::IntegerParameter(
-    TransportParameters::TransportParameterId param_id,
-    uint64_t default_value,
-    uint64_t min_value,
-    uint64_t max_value)
+    TransportParameters::TransportParameterId param_id, uint64_t default_value,
+    uint64_t min_value, uint64_t max_value)
     : param_id_(param_id),
       value_(default_value),
       default_value_(default_value),
@@ -179,24 +185,19 @@ TransportParameters::IntegerParameter::IntegerParameter(
       has_been_read_(false) {
   QUICHE_DCHECK_LE(min_value, default_value);
   QUICHE_DCHECK_LE(default_value, max_value);
-  QUICHE_DCHECK_LE(max_value, kVarInt62MaxValue);
+  QUICHE_DCHECK_LE(max_value, quiche::kVarInt62MaxValue);
 }
 
 TransportParameters::IntegerParameter::IntegerParameter(
     TransportParameters::TransportParameterId param_id)
     : TransportParameters::IntegerParameter::IntegerParameter(
-          param_id,
-          0,
-          0,
-          kVarInt62MaxValue) {}
+          param_id, 0, 0, quiche::kVarInt62MaxValue) {}
 
 void TransportParameters::IntegerParameter::set_value(uint64_t value) {
   value_ = value;
 }
 
-uint64_t TransportParameters::IntegerParameter::value() const {
-  return value_;
-}
+uint64_t TransportParameters::IntegerParameter::value() const { return value_; }
 
 bool TransportParameters::IntegerParameter::IsValid() const {
   return min_value_ <= value_ && value_ <= max_value_;
@@ -213,13 +214,13 @@ bool TransportParameters::IntegerParameter::Write(
     QUIC_BUG(quic_bug_10743_1) << "Failed to write param_id for " << *this;
     return false;
   }
-  const QuicVariableLengthIntegerLength value_length =
+  const quiche::QuicheVariableLengthIntegerLength value_length =
       QuicDataWriter::GetVarInt62Len(value_);
   if (!writer->WriteVarInt62(value_length)) {
     QUIC_BUG(quic_bug_10743_2) << "Failed to write value_length for " << *this;
     return false;
   }
-  if (!writer->WriteVarInt62(value_, value_length)) {
+  if (!writer->WriteVarInt62WithForcedLength(value_, value_length)) {
     QUIC_BUG(quic_bug_10743_3) << "Failed to write value for " << *this;
     return false;
   }
@@ -426,6 +427,11 @@ std::string TransportParameters::ToString() const {
           retry_source_connection_id.value().ToString();
   }
   rv += max_datagram_frame_size.ToString(/*for_use_in_list=*/true);
+  if (google_handshake_message.has_value()) {
+    absl::StrAppend(&rv, " ",
+                    TransportParameterIdToString(kGoogleHandshakeMessage),
+                    " length: ", google_handshake_message.value().length());
+  }
   rv += initial_round_trip_time_us.ToString(/*for_use_in_list=*/true);
   if (google_connection_options.has_value()) {
     rv += " " + TransportParameterIdToString(kGoogleConnectionOptions) + " ";
@@ -458,7 +464,8 @@ std::string TransportParameters::ToString() const {
 TransportParameters::TransportParameters()
     : max_idle_timeout_ms(kMaxIdleTimeout),
       max_udp_payload_size(kMaxPacketSize, kDefaultMaxPacketSizeTransportParam,
-                           kMinMaxPacketSizeTransportParam, kVarInt62MaxValue),
+                           kMinMaxPacketSizeTransportParam,
+                           quiche::kVarInt62MaxValue),
       initial_max_data(kInitialMaxData),
       initial_max_stream_data_bidi_local(kInitialMaxStreamDataBidiLocal),
       initial_max_stream_data_bidi_remote(kInitialMaxStreamDataBidiRemote),
@@ -476,7 +483,7 @@ TransportParameters::TransportParameters()
       active_connection_id_limit(kActiveConnectionIdLimit,
                                  kDefaultActiveConnectionIdLimitTransportParam,
                                  kMinActiveConnectionIdLimitTransportParam,
-                                 kVarInt62MaxValue),
+                                 quiche::kVarInt62MaxValue),
       max_datagram_frame_size(kMaxDatagramFrameSize),
       initial_round_trip_time_us(kInitialRoundTripTime)
 // Important note: any new transport parameters must be added
@@ -511,6 +518,7 @@ TransportParameters::TransportParameters(const TransportParameters& other)
       retry_source_connection_id(other.retry_source_connection_id),
       max_datagram_frame_size(other.max_datagram_frame_size),
       initial_round_trip_time_us(other.initial_round_trip_time_us),
+      google_handshake_message(other.google_handshake_message),
       google_connection_options(other.google_connection_options),
       custom_parameters(other.custom_parameters) {
   if (other.preferred_address) {
@@ -551,6 +559,7 @@ bool TransportParameters::operator==(const TransportParameters& rhs) const {
             rhs.max_datagram_frame_size.value() &&
         initial_round_trip_time_us.value() ==
             rhs.initial_round_trip_time_us.value() &&
+        google_handshake_message == rhs.google_handshake_message &&
         google_connection_options == rhs.google_connection_options &&
         custom_parameters == rhs.custom_parameters)) {
     return false;
@@ -622,6 +631,11 @@ bool TransportParameters::AreValid(std::string* error_details) const {
     }
   }
   if (perspective == Perspective::IS_SERVER &&
+      google_handshake_message.has_value()) {
+    *error_details = "Server cannot send google_handshake_message";
+    return false;
+  }
+  if (perspective == Perspective::IS_SERVER &&
       initial_round_trip_time_us.value() > 0) {
     *error_details = "Server cannot send initial round trip time";
     return false;
@@ -667,8 +681,7 @@ bool TransportParameters::AreValid(std::string* error_details) const {
 
 TransportParameters::~TransportParameters() = default;
 
-bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
-                                  const TransportParameters& in,
+bool SerializeTransportParameters(const TransportParameters& in,
                                   std::vector<uint8_t>* out) {
   std::string error_details;
   if (!in.AreValid(&error_details)) {
@@ -733,6 +746,7 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       kConnectionIdParameterLength +      // retry_source_connection_id
       kIntegerParameterLength +           // max_datagram_frame_size
       kIntegerParameterLength +           // initial_round_trip_time_us
+      kTypeAndValueLength +               // google_handshake_message
       kTypeAndValueLength +               // google_connection_options
       kTypeAndValueLength;                // google-version
 
@@ -752,6 +766,7 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       TransportParameters::kMinAckDelay,
       TransportParameters::kActiveConnectionIdLimit,
       TransportParameters::kMaxDatagramFrameSize,
+      TransportParameters::kGoogleHandshakeMessage,
       TransportParameters::kInitialRoundTripTime,
       TransportParameters::kDisableActiveMigration,
       TransportParameters::kPreferredAddress,
@@ -783,6 +798,10 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
         // Add one for the added GREASE version.
         (in.version_information.value().other_versions.size() + 1) *
             sizeof(QuicVersionLabel);
+  }
+  // google_handshake_message.
+  if (in.google_handshake_message.has_value()) {
+    max_transport_param_length += in.google_handshake_message.value().length();
   }
 
   // Add a random GREASE transport parameter, as defined in the
@@ -963,6 +982,20 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
           QUIC_BUG(Failed to write max_datagram_frame_size)
               << "Failed to write max_datagram_frame_size for " << in;
           return false;
+        }
+      } break;
+      // google_handshake_message
+      case TransportParameters::kGoogleHandshakeMessage: {
+        if (in.google_handshake_message.has_value()) {
+          if (!writer.WriteVarInt62(
+                  TransportParameters::kGoogleHandshakeMessage) ||
+              !writer.WriteStringPieceVarInt62(
+                  in.google_handshake_message.value())) {
+            QUIC_BUG(Failed to write google_handshake_message)
+                << "Failed to write google_handshake_message: "
+                << in.google_handshake_message.value() << " for " << in;
+            return false;
+          }
         }
       } break;
       // initial_round_trip_time_us
@@ -1195,10 +1228,8 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
 }
 
 bool ParseTransportParameters(ParsedQuicVersion version,
-                              Perspective perspective,
-                              const uint8_t* in,
-                              size_t in_len,
-                              TransportParameters* out,
+                              Perspective perspective, const uint8_t* in,
+                              size_t in_len, TransportParameters* out,
                               std::string* error_details) {
   out->perspective = perspective;
   QuicDataReader reader(reinterpret_cast<const char*>(in), in_len);
@@ -1395,6 +1426,14 @@ bool ParseTransportParameters(ParsedQuicVersion version,
         parse_success =
             out->max_datagram_frame_size.Read(&value_reader, error_details);
         break;
+      case TransportParameters::kGoogleHandshakeMessage:
+        if (out->google_handshake_message.has_value()) {
+          *error_details = "Received a second google_handshake_message";
+          return false;
+        }
+        out->google_handshake_message =
+            std::string(value_reader.ReadRemainingPayload());
+        break;
       case TransportParameters::kInitialRoundTripTime:
         parse_success =
             out->initial_round_trip_time_us.Read(&value_reader, error_details);
@@ -1504,8 +1543,7 @@ bool ParseTransportParameters(ParsedQuicVersion version,
 namespace {
 
 bool DigestUpdateIntegerParam(
-    EVP_MD_CTX* hash_ctx,
-    const TransportParameters::IntegerParameter& param) {
+    EVP_MD_CTX* hash_ctx, const TransportParameters::IntegerParameter& param) {
   uint64_t value = param.value();
   return EVP_DigestUpdate(hash_ctx, &value, sizeof(value));
 }
@@ -1513,8 +1551,7 @@ bool DigestUpdateIntegerParam(
 }  // namespace
 
 bool SerializeTransportParametersForTicket(
-    const TransportParameters& in,
-    const std::vector<uint8_t>& application_data,
+    const TransportParameters& in, const std::vector<uint8_t>& application_data,
     std::vector<uint8_t>* out) {
   std::string error_details;
   if (!in.AreValid(&error_details)) {
@@ -1585,6 +1622,34 @@ bool SerializeTransportParametersForTicket(
     return false;
   }
   return true;
+}
+
+void DegreaseTransportParameters(TransportParameters& parameters) {
+  // Strip GREASE from custom parameters.
+  for (auto it = parameters.custom_parameters.begin();
+       it != parameters.custom_parameters.end();
+       /**/) {
+    // See the "Reserved Transport Parameters" section of RFC 9000.
+    if (it->first % 31 == 27) {
+      parameters.custom_parameters.erase(it++);
+    } else {
+      ++it;
+    }
+  }
+
+  // Strip GREASE from versions.
+  if (parameters.version_information.has_value()) {
+    QuicVersionLabelVector clean_versions;
+    for (QuicVersionLabel version :
+         parameters.version_information->other_versions) {
+      // See the "Versions" section of RFC 9000.
+      if ((version & kReservedVersionMask) != kReservedVersionBits) {
+        clean_versions.push_back(version);
+      }
+    }
+
+    parameters.version_information->other_versions = std::move(clean_versions);
+  }
 }
 
 }  // namespace quic

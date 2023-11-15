@@ -24,7 +24,8 @@ proto_library(
 
 go_proto_library(
     name = "graph_messages_go_proto",
-    importpath = "github.com/lyft/protoc-gen-star/testdata/graph/messages",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/graph/messages",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/graph/messages"],
     proto = ":graph_messages_proto",
     visibility = ["//visibility:public"],
     deps = [
@@ -36,7 +37,8 @@ go_proto_library(
 go_library(
     name = "messages",
     embed = [":graph_messages_go_proto"],
-    importpath = "github.com/lyft/protoc-gen-star/testdata/graph/messages",
+    importpath = "github.com/lyft/protoc-gen-star/v2/testdata/graph/messages",
+    importpath_aliases = ["github.com/lyft/protoc-gen-star/testdata/graph/messages"],
     visibility = ["//visibility:public"],
 )
 

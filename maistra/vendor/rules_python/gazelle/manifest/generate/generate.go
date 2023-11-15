@@ -1,3 +1,17 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*
 generate.go is a program that generates the Gazelle YAML manifest.
 
@@ -24,12 +38,18 @@ func init() {
 }
 
 func main() {
+	var manifestGeneratorHashPath string
 	var requirementsPath string
 	var pipRepositoryName string
-	var pipRepositoryIncremental bool
 	var modulesMappingPath string
 	var outputPath string
 	var updateTarget string
+	flag.StringVar(
+		&manifestGeneratorHashPath,
+		"manifest-generator-hash",
+		"",
+		"The file containing the hash for the source code of the manifest generator."+
+			"This is important to force manifest updates when the generator logic changes.")
 	flag.StringVar(
 		&requirementsPath,
 		"requirements",
@@ -40,11 +60,6 @@ func main() {
 		"pip-repository-name",
 		"",
 		"The name of the pip_install or pip_repository target.")
-	flag.BoolVar(
-		&pipRepositoryIncremental,
-		"pip-repository-incremental",
-		false,
-		"The value for the incremental option in pip_repository.")
 	flag.StringVar(
 		&modulesMappingPath,
 		"modules-mapping",
@@ -89,10 +104,15 @@ func main() {
 		ModulesMapping: modulesMapping,
 		PipRepository: &manifest.PipRepository{
 			Name:        pipRepositoryName,
-			Incremental: pipRepositoryIncremental,
 		},
 	})
-	if err := writeOutput(outputPath, header, manifestFile, requirementsPath); err != nil {
+	if err := writeOutput(
+		outputPath,
+		header,
+		manifestFile,
+		manifestGeneratorHashPath,
+		requirementsPath,
+	); err != nil {
 		log.Fatalf("ERROR: %v\n", err)
 	}
 }
@@ -129,6 +149,7 @@ func writeOutput(
 	outputPath string,
 	header string,
 	manifestFile *manifest.File,
+	manifestGeneratorHashPath string,
 	requirementsPath string,
 ) error {
 	stat, err := os.Stat(outputPath)
@@ -146,7 +167,19 @@ func writeOutput(
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
-	if err := manifestFile.Encode(outputFile, requirementsPath); err != nil {
+	manifestGeneratorHash, err := os.Open(manifestGeneratorHashPath)
+	if err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	defer manifestGeneratorHash.Close()
+
+	requirements, err := os.Open(requirementsPath)
+	if err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	defer requirements.Close()
+
+	if err := manifestFile.Encode(outputFile, manifestGeneratorHash, requirements); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 

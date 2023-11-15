@@ -41,7 +41,8 @@ load(
 )
 load(
     "//go/private:go_toolchain.bzl",
-    _declare_toolchains = "declare_toolchains",
+    _declare_bazel_toolchains = "declare_bazel_toolchains",
+    _declare_go_toolchains = "declare_go_toolchains",
     _go_toolchain = "go_toolchain",
 )
 load(
@@ -59,6 +60,10 @@ load(
     _go_embed_data = "go_embed_data",
 )
 load(
+    "//extras:gomock.bzl",
+    _gomock = "gomock",
+)
+load(
     "//go/private/tools:path.bzl",
     _go_path = "go_path",
 )
@@ -69,6 +74,10 @@ load(
 load(
     "//go/private/rules:nogo.bzl",
     _nogo = "nogo_wrapper",
+)
+load(
+    "//go/private/rules:cross.bzl",
+    _go_cross_binary = "go_cross_binary",
 )
 
 # TOOLS_NOGO is a list of all analysis passes in
@@ -116,11 +125,25 @@ TOOLS_NOGO = [
 
 # Current version or next version to be tagged. Gazelle and other tools may
 # check this to determine compatibility.
-RULES_GO_VERSION = "0.31.0"
+RULES_GO_VERSION = "0.38.1"
 
-declare_toolchains = _declare_toolchains
+def declare_toolchains(host, sdk, builder, sdk_version_setting):
+    host_goos, _, host_goarch = host.partition("_")
+    _declare_go_toolchains(
+        host_goos = host_goos,
+        sdk = sdk,
+        builder = builder,
+    )
+    _declare_bazel_toolchains(
+        host_goos = host_goos,
+        host_goarch = host_goarch,
+        toolchain_prefix = "",
+        sdk_version_setting = sdk_version_setting,
+    )
+
 go_context = _go_context
 go_embed_data = _go_embed_data
+gomock = _gomock
 go_sdk = _go_sdk
 go_tool_library = _go_tool_library
 go_toolchain = _go_toolchain
@@ -159,28 +182,31 @@ go_source = _go_source
 # See docs/go/core/rules.md#go_path for full documentation.
 go_path = _go_path
 
-def go_vet_test(*args, **kwargs):
+# See docs/go/core/rules.md#go_cross_binary for full documentation.
+go_cross_binary = _go_cross_binary
+
+def go_vet_test(*_args, **_kwargs):
     fail("The go_vet_test rule has been removed. Please migrate to nogo instead, which supports vet tests.")
 
-def go_rule(**kwargs):
+def go_rule(**_kwargs):
     fail("The go_rule function has been removed. Use rule directly instead. See https://github.com/bazelbuild/rules_go/blob/master/go/toolchains.rst#writing-new-go-rules")
 
 def go_rules_dependencies():
     _moved("go_rules_dependencies")
 
-def go_register_toolchains(**kwargs):
+def go_register_toolchains(**_kwargs):
     _moved("go_register_toolchains")
 
-def go_download_sdk(**kwargs):
+def go_download_sdk(**_kwargs):
     _moved("go_download_sdk")
 
-def go_host_sdk(**kwargs):
+def go_host_sdk(**_kwargs):
     _moved("go_host_sdk")
 
-def go_local_sdk(**kwargs):
+def go_local_sdk(**_kwargs):
     _moved("go_local_sdk")
 
-def go_wrap_sdk(**kwargs):
+def go_wrap_sdk(**_kwargs):
     _moved("go_wrap_sdK")
 
 def _moved(name):

@@ -9,8 +9,6 @@
 #include "quiche/quic/core/crypto/crypto_framer.h"
 #include "quiche/quic/core/crypto/crypto_handshake.h"
 #include "quiche/quic/core/crypto/crypto_handshake_message.h"
-#include "quiche/quic/core/crypto/crypto_protocol.h"
-#include "quiche/quic/core/crypto/crypto_utils.h"
 #include "quiche/quic/core/crypto/quic_decrypter.h"
 #include "quiche/quic/core/crypto/quic_encrypter.h"
 #include "quiche/quic/core/frames/quic_ack_frequency_frame.h"
@@ -59,7 +57,8 @@ class ChloFramerVisitor : public QuicFramerVisitorInterface,
   bool OnAckRange(QuicPacketNumber start, QuicPacketNumber end) override;
   bool OnAckTimestamp(QuicPacketNumber packet_number,
                       QuicTime timestamp) override;
-  bool OnAckFrameEnd(QuicPacketNumber start) override;
+  bool OnAckFrameEnd(QuicPacketNumber start,
+                     const absl::optional<QuicEcnCounts>& ecn_counts) override;
   bool OnStopWaitingFrame(const QuicStopWaitingFrame& frame) override;
   bool OnPingFrame(const QuicPingFrame& frame) override;
   bool OnRstStreamFrame(const QuicRstStreamFrame& frame) override;
@@ -111,8 +110,7 @@ class ChloFramerVisitor : public QuicFramerVisitorInterface,
 };
 
 ChloFramerVisitor::ChloFramerVisitor(
-    QuicFramer* framer,
-    const QuicTagVector& create_session_tag_indicators,
+    QuicFramer* framer, const QuicTagVector& create_session_tag_indicators,
     ChloExtractor::Delegate* delegate)
     : framer_(framer),
       create_session_tag_indicators_(create_session_tag_indicators),
@@ -151,8 +149,7 @@ void ChloFramerVisitor::OnCoalescedPacket(
     const QuicEncryptedPacket& /*packet*/) {}
 
 void ChloFramerVisitor::OnUndecryptablePacket(
-    const QuicEncryptedPacket& /*packet*/,
-    EncryptionLevel /*decryption_level*/,
+    const QuicEncryptedPacket& /*packet*/, EncryptionLevel /*decryption_level*/,
     bool /*has_decryption_key*/) {}
 
 bool ChloFramerVisitor::OnStreamFrame(const QuicStreamFrame& frame) {
@@ -221,7 +218,9 @@ bool ChloFramerVisitor::OnAckTimestamp(QuicPacketNumber /*packet_number*/,
   return true;
 }
 
-bool ChloFramerVisitor::OnAckFrameEnd(QuicPacketNumber /*start*/) {
+bool ChloFramerVisitor::OnAckFrameEnd(
+    QuicPacketNumber /*start*/,
+    const absl::optional<QuicEcnCounts>& /*ecn_counts*/) {
   return true;
 }
 
@@ -348,8 +347,7 @@ void ChloFramerVisitor::OnHandshakeMessage(
 bool ChloExtractor::Extract(const QuicEncryptedPacket& packet,
                             ParsedQuicVersion version,
                             const QuicTagVector& create_session_tag_indicators,
-                            Delegate* delegate,
-                            uint8_t connection_id_length) {
+                            Delegate* delegate, uint8_t connection_id_length) {
   QUIC_DVLOG(1) << "Extracting CHLO using version " << version;
   QuicFramer framer({version}, QuicTime::Zero(), Perspective::IS_SERVER,
                     connection_id_length);

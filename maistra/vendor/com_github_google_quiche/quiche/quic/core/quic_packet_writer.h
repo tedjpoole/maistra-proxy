@@ -34,6 +34,8 @@ struct QUIC_EXPORT_PRIVATE PerPacketOptions {
   QuicTime::Delta release_time_delay = QuicTime::Delta::Zero();
   // Whether it is allowed to send this packet without |release_time_delay|.
   bool allow_burst = false;
+  // ECN codepoint to use when sending this packet.
+  QuicEcnCodepoint ecn_codepoint = ECN_NOT_ECT;
 };
 
 // An interface between writers and the entity managing the
@@ -102,8 +104,7 @@ class QUIC_EXPORT_PRIVATE QuicPacketWriter {
   // d) When WRITE_STATUS_BLOCKED_DATA_BUFFERED is returned, the caller expects
   // 1) the writer owns the packet buffers, and 2) the writer will re-send the
   // packet when it unblocks.
-  virtual WriteResult WritePacket(const char* buffer,
-                                  size_t buf_len,
+  virtual WriteResult WritePacket(const char* buffer, size_t buf_len,
                                   const QuicIpAddress& self_address,
                                   const QuicSocketAddress& peer_address,
                                   PerPacketOptions* options) = 0;
