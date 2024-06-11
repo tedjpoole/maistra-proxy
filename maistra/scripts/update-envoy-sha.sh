@@ -18,6 +18,13 @@ set -e
 set -u
 set -o pipefail
 
+# These can be overridden from the calling environment to
+# explicitly force a particular org, repo and/or branch name.
+ENVOY_ORG="${ENVOY_ORG:-envoyproxy}"
+ENVOY_REPO="${ENVOY_REPO:-envoy-openssl}"
+ENVOY_BRANCH="${ENVOY_BRANCH:-}"
+
+
 function cleanup() {
   rm -rf "${WORKDIR}"
 }
@@ -28,13 +35,26 @@ function init() {
 }
 
 function get_envoy_sha() {
-  local branch
-  branch="${BRANCH:-$(git symbolic-ref --quiet --short HEAD)}"
+  local proxy_branch
+
+  if [[ -z "${ENVOY_BRANCH}" ]]; then
+    proxy_branch="$(git symbolic-ref --quiet --short HEAD)"
+
+    case ${proxy_branch} in
+      maistra-2.6)
+        ENVOY_BRANCH=release/v1.28
+      ;;
+      *)
+        echo "Unknown proxy branch ${proxy_branch}" 1>&2
+        exit 1
+      ;;
+    esac
+  fi
 
   pushd "${WORKDIR}" >/dev/null
-  git clone --depth=1 -b "${branch}" https://github.com/maistra/envoy.git
+  git clone --depth=1 -b "${ENVOY_BRANCH}" "https://github.com/${ENVOY_ORG}/${ENVOY_REPO}.git"
 
-  pushd envoy >/dev/null
+  pushd "${ENVOY_REPO}" >/dev/null
   SHA=$(git rev-parse HEAD)
   popd >/dev/null
 
@@ -43,7 +63,7 @@ function get_envoy_sha() {
 
 function get_envoy_sha_256() {
   pushd "${WORKDIR}" >/dev/null
-  curl -sfLO "https://github.com/maistra/envoy/archive/${SHA}.tar.gz"
+  curl -sfLO "https://github.com/${ENVOY_ORG}/${ENVOY_REPO}/archive/${SHA}.tar.gz"
   SHA256=$(sha256sum "${SHA}.tar.gz" | awk '{print $1}')
   popd >/dev/null
 }
@@ -57,7 +77,9 @@ function main() {
   get_envoy_sha
   get_envoy_sha_256
 
-  sed -i "s|^# Commit time: .*|# Commit time: ${today}|" WORKSPACE
+  sed -i "s|^# Commit date: .*|# Commit date: ${today}|" WORKSPACE
+  sed -i "s|^ENVOY_ORG = .*|ENVOY_ORG = \"${ENVOY_ORG}\"|" WORKSPACE
+  sed -i "s|^ENVOY_REPO = .*|ENVOY_REPO = \"${ENVOY_REPO}\"|" WORKSPACE
   sed -i "s|^ENVOY_SHA = .*|ENVOY_SHA = \"${SHA}\"|" WORKSPACE
   sed -i "s|^ENVOY_SHA256 = .*|ENVOY_SHA256 = \"${SHA256}\"|" WORKSPACE
 }

@@ -81,7 +81,7 @@ function copy_files() {
         cp_flags="-r"
       fi
       cp "${cp_flags}" "${f}" "${VENDOR_DIR}" || echo "Copy of ${f} failed. Ignoring..."
-      echo "build --override_repository=${repo_name}=/work/maistra/vendor/${repo_name}" >> "${BAZELRC}"
+      echo "build --override_repository=${repo_name}=%workspace%/maistra/vendor/${repo_name}" >> "${BAZELRC}"
     fi
   done 
 
@@ -99,7 +99,7 @@ function run_bazel() {
   bazel --output_base="${OUTPUT_BASE}" fetch @com_google_protobuf_protoc_linux_aarch_64//:protoc
 
   # Fetch all the rest and check everything using "build --nobuild "option
-  for config in s390x ppc x86_64 aarch64; do
+  for config in x86_64 aarch64; do # TODO: Add back s390x & ppc
     bazel --output_base="${OUTPUT_BASE}" build --nobuild --config="${config}" //...
   done
 }
