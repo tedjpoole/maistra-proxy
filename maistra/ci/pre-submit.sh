@@ -15,6 +15,9 @@ time bazel_build //:envoy
 echo "Build succeeded. Binary generated:"
 bazel-bin/envoy --version
 
+# Run envoy tests
+time bazel_test @envoy//test/...
+
 # Run tests
 time bazel_test //...
 
